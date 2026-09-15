@@ -1,32 +1,55 @@
 # -*- coding: utf-8 -*-
-"""views/acerca_de.py - Informacion institucional del proyecto."""
+"""views/acerca_de.py - Informacion del proyecto y como usarlo."""
 
 import streamlit as st
 
-LOGO_URL = "https://github.com/GIUSEPPESAN21/LOGO-SAVA/blob/main/LOGO%20COLIBRI.png?raw=true"
+LOGO_URL = (
+    "https://upload.wikimedia.org/wikipedia/commons/d/db/"
+    "Logotipo_de_la_Corporaci%C3%B3n_Universitaria_Minuto_de_Dios.svg"
+)
 
 
 def render():
-    st.title("Sobre SAVA Lab Inventory")
-    st.subheader("Gestion inteligente de inventario para laboratorios de ingenieria")
-
-    st.markdown("""
-    **SAVA Lab Inventory** nace para resolver un problema muy concreto de los laboratorios de
-    ingenieria: saber en todo momento **que equipos y materiales existen, donde estan y quien
-    los tiene prestados**. Usa una jerarquia de codigos de barras (contenedor maestro + items
-    hijos) para identificar tanto cajas/kits completos como cada componente individual dentro
-    de ellos, y un sistema de roles (estudiante, profesor, maestro) para dar trazabilidad
-    completa a cada salida y reingreso.
-    """)
+    col_logo, col_title = st.columns([1, 4])
+    with col_logo:
+        st.image(LOGO_URL, width=140, caption="UNIMINUTO")
+    with col_title:
+        st.title("Inventario de Laboratorio UNIMINUTO")
+        st.subheader("Trazabilidad de equipos y materiales del laboratorio de ingeniería")
 
     st.markdown("---")
-    col1, col2 = st.columns([1, 3])
-    with col1:
-        st.image(LOGO_URL, width=180, caption="SAVA")
-    with col2:
-        st.markdown("#### Joseph Javier Sanchez Acuna")
-        st.markdown("**CEO - SAVA SOFTWARE FOR ENGINEERING**")
+
+    st.markdown("""
+    Este sistema fue creado para el **laboratorio de ingeniería de UNIMINUTO**, donde
+    conviven muchos tipos de productos identificados con una serie propia de códigos
+    de barras. Su objetivo es saber en todo momento **qué equipos y materiales existen,
+    dónde están y quién los tiene prestados**, sin depender de planillas sueltas.
+    """)
+
+    st.subheader("¿Cómo funciona?")
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown("##### 📦 Códigos jerárquicos")
         st.markdown(
-            "- **LinkedIn:** [joseph-javier-sánchez-acuña](https://www.linkedin.com/in/joseph-javier-sánchez-acuña-150410275)\n"
-            "- **GitHub:** [GIUSEPPESAN21](https://github.com/GIUSEPPESAN21)"
+            "Un **contenedor maestro** (una caja o kit) agrupa varios **ítems hijos**, "
+            "cada uno con su propio código de barras individual."
         )
+    with c2:
+        st.markdown("##### 🔁 Salida y reingreso")
+        st.markdown(
+            "Cada préstamo queda registrado: quién lo tomó, cuándo y cuándo debe "
+            "devolverlo. La disponibilidad se calcula siempre en tiempo real."
+        )
+    with c3:
+        st.markdown("##### 👥 Roles institucionales")
+        st.markdown(
+            "Estudiantes, profesores y el perfil maestro tienen permisos distintos, "
+            "usando el correo institucional de UNIMINUTO para identificarse."
+        )
+
+    st.markdown("---")
+    st.subheader("Soporte")
+    st.markdown(
+        "Para dudas sobre el uso del sistema o solicitudes de soporte, contacta al "
+        "administrador del laboratorio (perfil maestro) desde tu programa académico."
+    )

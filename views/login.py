@@ -5,7 +5,10 @@ import streamlit as st
 
 from core import auth
 
-LOGO_URL = "https://github.com/GIUSEPPESAN21/LOGO-SAVA/blob/main/LOGO%20COLIBRI.png?raw=true"
+LOGO_URL = (
+    "https://upload.wikimedia.org/wikipedia/commons/d/db/"
+    "Logotipo_de_la_Corporaci%C3%B3n_Universitaria_Minuto_de_Dios.svg"
+)
 
 
 def render():
@@ -15,12 +18,12 @@ def render():
     with col_b:
         st.image(LOGO_URL, width=110)
         st.markdown(
-            '<h1 class="main-header" style="margin-bottom:0;">SAVA Lab Inventory</h1>',
+            '<h1 class="main-header" style="margin-bottom:0;">Inventario de Laboratorio</h1>',
             unsafe_allow_html=True,
         )
         st.markdown(
             '<p style="text-align:center; color: var(--subtle-text-color);">'
-            "Gestion de inventario y prestamos para laboratorios de ingenieria</p>",
+            "UNIMINUTO · Gestión de inventario y préstamos para laboratorios de ingeniería</p>",
             unsafe_allow_html=True,
         )
         st.markdown("---")
@@ -46,7 +49,7 @@ def render():
             st.caption(f"Solo se aceptan correos institucionales: {domains}")
             with st.form("register_form"):
                 full_name = st.text_input("Nombre completo")
-                email = st.text_input("Correo institucional", key="reg_email", placeholder="nombre@uniandes.edu.co")
+                email = st.text_input("Correo institucional", key="reg_email", placeholder="nombre@uniminuto.edu.co")
                 program = st.text_input("Programa academico o departamento")
                 password = st.text_input("Contrasena", type="password", key="reg_pw")
                 password2 = st.text_input("Confirmar contrasena", type="password", key="reg_pw2")

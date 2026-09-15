@@ -1,24 +1,19 @@
-# SAVA Lab Inventory
+# Inventario de Laboratorio UNIMINUTO
 
-![CI](https://github.com/GIUSEPPESAN21/SAVA-Lab-Inventory/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/GIUSEPPESAN21/UNIMINUTO-Lab-Inventory/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
-Sistema de gestión de inventario y préstamos (salida/reingreso) para laboratorios
-de ingeniería, con códigos de barras jerárquicos (contenedor maestro + ítems
-hijos) y control de acceso por roles usando correo institucional
-(estudiante / profesor / perfil maestro).
+Sistema de gestión de inventario y préstamos (salida/reingreso) para el
+**laboratorio de ingeniería de UNIMINUTO**, con códigos de barras jerárquicos
+(contenedor maestro + ítems hijos) y control de acceso por roles usando el
+correo institucional (estudiante / profesor / perfil maestro).
 
-Este repositorio es **público**; la base de datos (Excel con datos de
-inventario, préstamos y usuarios) vive en un repositorio **privado** aparte:
-`GIUSEPPESAN21/SAVA-Lab-Database`. El código nunca contiene datos reales ni
-credenciales — ambos se inyectan en tiempo de ejecución vía Secrets de
-Streamlit (ver sección de Configuración).
-
-> Evolucionó desde un borrador inicial construido a partir del proyecto
-> [Software-Rapi-tienda-SAVA](https://github.com/GIUSEPPESAN21/Software-Rapi-tienda-SAVA),
-> adaptado de un punto de venta de tienda a un sistema de préstamos de
-> laboratorio. Ver [CHANGELOG.md](CHANGELOG.md) y la sección "Diferencias
-> con la app de tienda" abajo.
+Este repositorio es **público**; la base de datos (Excel con inventario,
+préstamos y usuarios) vive en un repositorio **privado** aparte:
+`GIUSEPPESAN21/UNIMINUTO-Lab-Database`. El código nunca contiene datos reales
+ni credenciales — ambos se inyectan en tiempo de ejecución vía Secrets de
+Streamlit (ver sección de Configuración). La base de datos se entrega
+**vacía**: cada laboratorio carga su propio catálogo (manualmente o por CSV).
 
 ## Conceptos clave
 
@@ -46,18 +41,22 @@ Streamlit (ver sección de Configuración).
 (gestionada por un `maestro`). El rol `maestro` nunca se auto-asigna: la
 primera cuenta maestra se siembra desde los Secrets de Streamlit
 (`MASTER_EMAIL` / `MASTER_INITIAL_PASSWORD`) la primera vez que arranca la app.
+Por defecto solo se aceptan correos `@uniminuto.edu.co` (configurable con
+`ALLOWED_EMAIL_DOMAINS`).
 
 ## Arquitectura
 
-- **Frontend/backend**: Streamlit (multipágina moderna con `st.navigation`).
-- **Base de datos**: un archivo Excel (`SAVA_LAB_DB.xlsx`) que vive en el
-  repositorio **privado** `GIUSEPPESAN21/SAVA-Lab-Database`. Cada escritura se
-  guarda localmente y se sincroniza a GitHub vía API en un hilo de fondo
-  (mismo mecanismo, ya probado en producción, de la app de tienda).
+- **Frontend/backend**: Streamlit, con navegación moderna agrupada por
+  secciones (`st.navigation`): Principal, Gestión del laboratorio,
+  Administración y Mi cuenta — visibles según el rol de quien inició sesión.
+- **Base de datos**: un archivo Excel (`UNIMINUTO_LAB_DB.xlsx`) que vive en el
+  repositorio **privado** `GIUSEPPESAN21/UNIMINUTO-Lab-Database`. Cada
+  escritura se guarda localmente y se sincroniza a GitHub vía API en un hilo
+  de fondo.
 - **Autenticación**: contraseñas con `bcrypt`, sesión con `st.session_state`.
 
 ```
-app.py                 Punto de entrada: config, CSS, sesión, navegación por rol
+app.py                  Punto de entrada: config, CSS, sesión, navegación agrupada por rol
 core/
   config.py              Acceso seguro a st.secrets (nunca lanza si faltan)
   storage.py             Capa de datos: Excel local + sync a GitHub
@@ -77,13 +76,12 @@ tests/                  Pruebas unitarias de core/* (pytest, sin tocar Excel/Git
 
 En **Inventario → Importar CSV masivo** puedes subir un CSV con columnas
 `id,name,category,description,item_type,parent_id,unit,quantity,location,min_stock_alert`
-para cargar de una sola vez el catálogo inicial del laboratorio (útil para
-tu serie extensa de códigos de barras ya impresos). El botón de la pestaña
+para cargar de una sola vez el catálogo inicial del laboratorio (útil para tu
+serie extensa de códigos de barras ya impresos). El botón de la pestaña
 descarga una plantilla de ejemplo. Toda la importación se sincroniza a
 GitHub en un solo commit, no uno por fila. Si vas a importar contenedores
-maestros junto con sus items hijos, coloca la fila del maestro **antes**
-que la de sus hijos en el CSV (los hijos se validan contra los maestros ya
-procesados en esa misma importación).
+maestros junto con sus items hijos, coloca la fila del maestro **antes** que
+la de sus hijos en el CSV.
 
 ## Pruebas automatizadas
 
@@ -105,7 +103,7 @@ pégalo en Streamlit Cloud → tu app → Settings → Secrets (o guárdalo como
 debe subirse al repositorio).
 
 El `GITHUB_TOKEN` debe ser un *fine-grained personal access token* con acceso
-**únicamente** al repositorio `SAVA-Lab-Database` y permiso
+**únicamente** al repositorio `UNIMINUTO-Lab-Database` y permiso
 "Contents: Read and write". No reutilices tokens con acceso a otros
 repositorios.
 
@@ -115,20 +113,6 @@ repositorios.
 pip install -r requirements.txt
 streamlit run app.py
 ```
-
-## Diferencias con la app de tienda (Software-Rapi-tienda-SAVA)
-
-Este proyecto nació como código nuevo, no como un fork directo. Se reutilizó el patrón
-de persistencia (Excel + GitHub) porque ya está validado en producción, pero
-se rediseñó el modelo de negocio:
-
-- Ventas/fiado → reemplazado por préstamos con salida y reingreso.
-- Sin login → login obligatorio con roles y correo institucional.
-- Descuento directo de stock al vender → libro mayor de préstamos abiertos
-  (más auditable para activos que se devuelven).
-- Un solo nivel de producto → jerarquía contenedor maestro / ítems hijos.
-- Módulo de IA (Gemini) de la app de tienda no se incluye: no se usaba en
-  ninguna pantalla de esa app (código muerto detectado en el análisis previo).
 
 ## Licencia
 

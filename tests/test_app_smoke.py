@@ -18,7 +18,7 @@ def test_login_screen_renders_without_exceptions():
     at = AppTest.from_file("app.py")
     at.run()
     assert not at.exception
-    assert any("SAVA Lab Inventory" in md.value for md in at.markdown)
+    assert any("Inventario de Laboratorio" in md.value for md in at.markdown)
 
 
 def test_master_login_succeeds_and_shows_navigation():
@@ -56,7 +56,7 @@ def test_student_self_registration_end_to_end():
     # los del login (1era pestana) en el orden de ejecucion del script.
     full_name_input, email_input, program_input, pw_input, pw2_input = at.text_input[2:7]
     full_name_input.input("Estudiante de Prueba")
-    email_input.input("estudiante.prueba@uniandes.edu.co")
+    email_input.input("estudiante.prueba@uniminuto.edu.co")
     program_input.input("Ingenieria Industrial")
     pw_input.input("ClaveSegura123")
     pw2_input.input("ClaveSegura123")

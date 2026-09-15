@@ -6,12 +6,26 @@ import streamlit as st
 from core import loans as loans_core
 
 
+def _quick_guide():
+    with st.expander("💡 Guía rápida: ¿cómo funciona este sistema?", expanded=False):
+        st.markdown("""
+        1. **Contenedor maestro**: un código pegado a una caja o kit que agrupa varios productos.
+        2. **Ítem hijo**: un código individual de un producto que vive dentro de un contenedor maestro.
+        3. **Ítem individual**: un producto con su propio código, sin contenedor.
+        4. Ve a **🛰️ Escanear**, escribe o escanea el código con tu lector USB, y desde ahí puedes
+           **dar salida** (llevarte el producto prestado) o **reingresarlo** cuando lo devuelvas.
+        5. En **📋 Préstamos** puedes ver en todo momento qué tienes prestado (o, si eres profesor
+           o del perfil maestro, quién tiene qué en todo el laboratorio).
+        """)
+
+
 def render():
     storage = st.session_state.storage
     user = st.session_state.user
 
     st.markdown(f'<h1 class="main-header">Bienvenido, {user["full_name"].split(" ")[0]}</h1>', unsafe_allow_html=True)
     st.caption(f"Rol: {user['role'].capitalize()} · {user.get('program_or_department', '')}")
+    _quick_guide()
     st.markdown("---")
 
     try:
@@ -37,6 +51,18 @@ def render():
         c4.metric("👥 Usuarios registrados", len(users))
 
     st.markdown("---")
+
+    if not items:
+        st.info(
+            "🧪 El inventario todavía está vacío."
+            + (
+                " Ve a **📦 Inventario → Nuevo item / contenedor** (o **Importar CSV masivo**) "
+                "para registrar los primeros productos del laboratorio."
+                if user["role"] in ("profesor", "maestro")
+                else " Pídele a un profesor o al administrador del laboratorio que registre los primeros productos."
+            )
+        )
+        return
 
     col1, col2 = st.columns(2)
     with col1:

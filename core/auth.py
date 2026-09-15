@@ -18,7 +18,7 @@ from core.config import safe_secret
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_ALLOWED_DOMAINS = ["uniminuto.edu.co", "uniandes.edu.co"]
+DEFAULT_ALLOWED_DOMAINS = ["uniminuto.edu.co"]
 
 
 def get_allowed_domains() -> list:
@@ -59,11 +59,11 @@ def ensure_master_seed(storage) -> None:
         if storage.get_user_by_email(master_email):
             return
         storage.create_user(
-            full_name="Administrador SAVA Lab",
+            full_name="Administrador del Laboratorio",
             email=master_email,
             password_hash=hash_password(master_password),
             role="maestro",
-            program="Direccion de Laboratorio",
+            program="Direccion de Laboratorio - UNIMINUTO",
             status="active",
         )
         logger.info("Cuenta maestra sembrada desde Secrets.")

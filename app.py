@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-SAVA Lab Inventory
-Gestion de inventario y prestamos (checkout/checkin) para laboratorios de
-ingenieria, con codigos de barras jerarquicos (contenedor maestro + items
-hijos) y login por roles (estudiante / profesor / maestro).
+Inventario de Laboratorio UNIMINUTO
+Gestion de inventario y prestamos (checkout/checkin) para el laboratorio de
+ingenieria de UNIMINUTO, con codigos de barras jerarquicos (contenedor
+maestro + items hijos) y login por roles (estudiante / profesor / maestro)
+via correo institucional.
 """
 
 import streamlit as st
@@ -12,8 +13,8 @@ from core.storage import LabStorage
 from core import auth
 
 st.set_page_config(
-    page_title="SAVA Lab Inventory",
-    page_icon="🧪",
+    page_title="Inventario de Laboratorio UNIMINUTO",
+    page_icon="🎓",
     layout="wide",
 )
 
@@ -72,13 +73,32 @@ if user["role"] == "maestro":
     pages["usuarios"] = st.Page(usuarios.render, title="Usuarios", icon="👥", url_path="usuarios")
 
 pages["perfil"] = st.Page(perfil.render, title="Mi perfil", icon="👤", url_path="perfil")
-pages["acerca_de"] = st.Page(acerca_de.render, title="Acerca de SAVA", icon="🏢", url_path="acerca-de")
+pages["acerca_de"] = st.Page(acerca_de.render, title="Acerca de", icon="🏢", url_path="acerca-de")
 
 st.session_state.pages = pages
 
+# Navegacion agrupada por secciones para que el sidebar sea facil de leer.
+nav_sections = {"🧭 Principal": [pages["inicio"], pages["escanear"], pages["prestamos"]]}
+if user["role"] in ("profesor", "maestro"):
+    nav_sections["🗂️ Gestion del laboratorio"] = [pages["inventario"], pages["reportes"]]
+if user["role"] == "maestro":
+    nav_sections["🔐 Administracion"] = [pages["usuarios"]]
+nav_sections["👤 Mi cuenta"] = [pages["perfil"], pages["acerca_de"]]
+
 ROLE_LABELS = {"estudiante": "Estudiante", "profesor": "Profesor", "maestro": "Perfil maestro"}
+LOGO_URL = (
+    "https://upload.wikimedia.org/wikipedia/commons/d/db/"
+    "Logotipo_de_la_Corporaci%C3%B3n_Universitaria_Minuto_de_Dios.svg"
+)
 
 with st.sidebar:
+    logo_col1, logo_col2, logo_col3 = st.columns([1, 2, 1])
+    with logo_col2:
+        st.image(LOGO_URL, width=70)
+    st.markdown(
+        '<p style="text-align:center; font-weight:600; margin-top:-8px;">Laboratorio de Ingeniería</p>',
+        unsafe_allow_html=True,
+    )
     st.markdown(
         f"""
         <div class="user-chip">
@@ -96,7 +116,7 @@ with st.sidebar:
         st.session_state.user = None
         st.rerun()
     st.markdown("---")
-    st.caption("© 2026 SAVA Software for Engineering.")
+    st.caption("© 2026 UNIMINUTO · Laboratorio de Ingeniería.")
 
-nav = st.navigation(list(pages.values()))
+nav = st.navigation(nav_sections)
 nav.run()

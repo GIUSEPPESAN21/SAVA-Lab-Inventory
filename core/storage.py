@@ -24,7 +24,7 @@ from core.config import safe_secret
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-EXCEL_PATH = "SAVA_LAB_DB.xlsx"
+EXCEL_PATH = "UNIMINUTO_LAB_DB.xlsx"
 
 SHEET_COLUMNS = {
     "items": [

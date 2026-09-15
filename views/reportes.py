@@ -78,7 +78,7 @@ def render():
             st.download_button(
                 "⬇️ Descargar Excel",
                 data=st.session_state["export_buffer"],
-                file_name=f"SAVA_Lab_Export_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+                file_name=f"Inventario_UNIMINUTO_Export_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True,
             )

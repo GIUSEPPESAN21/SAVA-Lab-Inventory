@@ -188,7 +188,7 @@ def render():
             "MULT-01,Multimetro digital,Instrumentacion,Fluke 115,standalone,,unidad,4,Gabinete B,1\n"
         )
         st.download_button(
-            "⬇️ Descargar plantilla CSV", data=template_csv, file_name="plantilla_items_sava_lab.csv",
+            "⬇️ Descargar plantilla CSV", data=template_csv, file_name="plantilla_items_laboratorio.csv",
             mime="text/csv", use_container_width=True,
         )
 

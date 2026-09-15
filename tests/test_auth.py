@@ -4,13 +4,17 @@ from core import auth
 
 def test_is_institutional_email_accepts_allowed_domains():
     assert auth.is_institutional_email("ana@uniminuto.edu.co")
-    assert auth.is_institutional_email("Juan@Uniandes.edu.co")
+    assert auth.is_institutional_email("Juan@Uniminuto.edu.co")
 
 
 def test_is_institutional_email_rejects_other_domains():
     assert not auth.is_institutional_email("ana@gmail.com")
     assert not auth.is_institutional_email("no-es-un-correo")
     assert not auth.is_institutional_email("")
+    # El sistema es exclusivo de UNIMINUTO por defecto: otros dominios
+    # academicos (ej. uniandes.edu.co) no se aceptan salvo que se configure
+    # ALLOWED_EMAIL_DOMAINS explicitamente.
+    assert not auth.is_institutional_email("ana@uniandes.edu.co")
 
 
 def test_password_hash_roundtrip():
@@ -26,8 +30,8 @@ def test_register_user_defaults_to_estudiante(storage):
 
 
 def test_register_user_whitelisted_email_becomes_profesor(storage):
-    storage.add_to_whitelist("prof@uniandes.edu.co")
-    user, error = auth.register_user(storage, "Prof. Gomez", "prof@uniandes.edu.co", "password123", "Ing. Industrial")
+    storage.add_to_whitelist("prof@uniminuto.edu.co")
+    user, error = auth.register_user(storage, "Prof. Gomez", "prof@uniminuto.edu.co", "password123", "Ing. Industrial")
     assert error is None
     assert user["role"] == "profesor"
 
