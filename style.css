@@ -14,7 +14,27 @@
     --box-shadow: 0 4px 12px rgba(0,0,0,0.06);
 }
 
-[data-theme="dark"] {
+/* El tema de Streamlit no siempre expone [data-theme] de forma fiable en
+   todos los dispositivos/navegadores, sobre todo en celulares con "Usar
+   config. del sistema". Por eso el modo oscuro se activa con AMBAS señales:
+   la preferencia real del sistema operativo (prefers-color-scheme) Y el
+   atributo de Streamlit cuando sí está presente. Sin esto, un telefono en
+   modo oscuro puede terminar con texto oscuro sobre fondo oscuro nativo de
+   Streamlit (o viceversa), haciendo que los nombres "no se vean". */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --primary-color: #5C9AE0;
+        --secondary-color: #4FBDB2;
+        --accent-color: #E08659;
+        --background-color: #10131A;
+        --surface-color: #1B1F29;
+        --text-color: #EAEDF2;
+        --subtle-text-color: #A3ABB8;
+        --border-color: #2B3140;
+    }
+}
+
+:root[data-theme="dark"] {
     --primary-color: #5C9AE0;
     --secondary-color: #4FBDB2;
     --accent-color: #E08659;
@@ -29,6 +49,30 @@ body, .stApp {
     font-family: 'Inter', sans-serif;
     background-color: var(--background-color);
     color: var(--text-color);
+}
+
+/* --- Legibilidad en celular --- */
+@media (max-width: 640px) {
+    .main-header {
+        font-size: 1.6rem;
+    }
+    .page-subtitle {
+        font-size: 0.9rem;
+    }
+    .block-container {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+}
+
+/* Streamlit trunca con "..." las etiquetas y valores largos de st.metric
+   cuando la columna es angosta (muy comun en celular). Forzamos que el
+   texto haga salto de linea en vez de desaparecer. */
+[data-testid="stMetricLabel"] p,
+[data-testid="stMetricValue"] {
+    white-space: normal !important;
+    overflow-wrap: break-word;
+    line-height: 1.2;
 }
 
 .main-header {
@@ -112,10 +156,14 @@ body, .stApp {
     font-size: 1.1rem;
     flex-shrink: 0;
 }
+.user-chip > div:last-child {
+    min-width: 0;
+}
 .user-name {
     font-weight: 600;
     font-size: 0.95rem;
     color: var(--text-color);
+    overflow-wrap: anywhere;
 }
 .user-role {
     display: inline-block;

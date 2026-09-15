@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.3.0 — Modo oscuro real y legibilidad en celular
+
+- **Bug de modo oscuro corregido**: la paleta oscura solo se activaba con el
+  atributo `[data-theme="dark"]`, que no siempre está presente en todos los
+  navegadores/dispositivos (especialmente en celulares con "Usar
+  configuración del sistema"). Ahora también reacciona a la preferencia real
+  del sistema operativo (`prefers-color-scheme: dark`), evitando que quede
+  texto oscuro sobre fondo oscuro (o viceversa) y los nombres "desaparezcan".
+- **Legibilidad en celular**: los `st.metric` (usados en Inicio, Escanear,
+  Préstamos, Reportes, etc.) truncaban con "..." las etiquetas y valores
+  largos en pantallas angostas; ahora hacen salto de línea. Los títulos de
+  página se reducen de tamaño en pantallas pequeñas (`max-width: 640px`) y
+  se recorta el padding lateral para aprovechar mejor el espacio.
+- El nombre del usuario en el chip del sidebar ahora puede partirse en
+  varias líneas en vez de desbordarse si es muy largo.
+
 ## v1.2.0 — Interfaz centrada y nueva nomenclatura de contenedores
 
 - **Logo y títulos realmente centrados** en toda la app: nuevo helper
