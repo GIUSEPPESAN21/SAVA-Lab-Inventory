@@ -1,13 +1,17 @@
 # -*- coding: utf-8 -*-
 """Prueba de humo end-to-end usando streamlit.testing.v1.AppTest: simula un
-login real (sin navegador) contra la app completa, con la cuenta maestra
-sembrada desde secrets locales de prueba."""
+login/registro reales (sin navegador) contra la app completa. No depende de
+Secrets de Streamlit (MASTER_EMAIL, etc.): la cuenta usada para el login se
+siembra directamente en el storage en memoria de la propia sesion de prueba,
+para que la suite sea 100% determinista tanto en local como en CI."""
 
 import pytest
 
 pytest.importorskip("streamlit.testing.v1")
 
 from streamlit.testing.v1 import AppTest
+
+from core import auth
 
 
 def test_login_screen_renders_without_exceptions():
@@ -22,12 +26,20 @@ def test_master_login_succeeds_and_shows_navigation():
     at.run()
     assert not at.exception
 
+    # Sembramos una cuenta maestra directamente en el storage de la sesion
+    # de prueba (independiente de cualquier secrets.toml).
+    storage = at.session_state["storage"]
+    storage.create_user(
+        full_name="Maestro de Prueba", email="maestro.prueba@uniminuto.edu.co",
+        password_hash=auth.hash_password("ClaveMaestra123"), role="maestro",
+    )
+
     # Los widgets dentro de un st.form no exponen una key legible facil de
     # adivinar; se localizan por orden dentro del primer formulario (login).
     email_input = at.text_input[0]
     password_input = at.text_input[1]
-    email_input.input("admin@uniminuto.edu.co")
-    password_input.input("TestPassword123")
+    email_input.input("maestro.prueba@uniminuto.edu.co")
+    password_input.input("ClaveMaestra123")
     at.button[0].click().run()
 
     assert not at.exception
