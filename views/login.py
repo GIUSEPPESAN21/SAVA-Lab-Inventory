@@ -1,0 +1,65 @@
+# -*- coding: utf-8 -*-
+"""views/login.py - Pantalla de inicio de sesion y registro."""
+
+import streamlit as st
+
+from core import auth
+
+LOGO_URL = "https://github.com/GIUSEPPESAN21/LOGO-SAVA/blob/main/LOGO%20COLIBRI.png?raw=true"
+
+
+def render():
+    storage = st.session_state.storage
+
+    col_a, col_b, col_c = st.columns([1, 2, 1])
+    with col_b:
+        st.image(LOGO_URL, width=110)
+        st.markdown(
+            '<h1 class="main-header" style="margin-bottom:0;">SAVA Lab Inventory</h1>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<p style="text-align:center; color: var(--subtle-text-color);">'
+            "Gestion de inventario y prestamos para laboratorios de ingenieria</p>",
+            unsafe_allow_html=True,
+        )
+        st.markdown("---")
+
+        tab_login, tab_register = st.tabs(["🔐 Iniciar sesion", "📝 Registrarme"])
+
+        with tab_login:
+            with st.form("login_form"):
+                email = st.text_input("Correo institucional", placeholder="nombre@uniminuto.edu.co")
+                password = st.text_input("Contrasena", type="password")
+                submitted = st.form_submit_button("Ingresar", type="primary", use_container_width=True)
+
+                if submitted:
+                    user, error = auth.login_user(storage, email, password)
+                    if error:
+                        st.error(error)
+                    else:
+                        st.session_state.user = user
+                        st.rerun()
+
+        with tab_register:
+            domains = ", ".join(auth.get_allowed_domains())
+            st.caption(f"Solo se aceptan correos institucionales: {domains}")
+            with st.form("register_form"):
+                full_name = st.text_input("Nombre completo")
+                email = st.text_input("Correo institucional", key="reg_email", placeholder="nombre@uniandes.edu.co")
+                program = st.text_input("Programa academico o departamento")
+                password = st.text_input("Contrasena", type="password", key="reg_pw")
+                password2 = st.text_input("Confirmar contrasena", type="password", key="reg_pw2")
+                submitted = st.form_submit_button("Crear cuenta", type="primary", use_container_width=True)
+
+                if submitted:
+                    if password != password2:
+                        st.error("Las contrasenas no coinciden.")
+                    else:
+                        user, error = auth.register_user(storage, full_name, email, password, program)
+                        if error:
+                            st.error(error)
+                        else:
+                            st.success(
+                                f"¡Cuenta creada como **{user['role']}**! Ya puedes iniciar sesion en la pestana anterior."
+                            )

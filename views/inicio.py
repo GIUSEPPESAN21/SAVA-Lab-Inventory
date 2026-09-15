@@ -1,0 +1,69 @@
+# -*- coding: utf-8 -*-
+"""views/inicio.py - Dashboard principal."""
+
+import streamlit as st
+
+from core import loans as loans_core
+
+
+def render():
+    storage = st.session_state.storage
+    user = st.session_state.user
+
+    st.markdown(f'<h1 class="main-header">Bienvenido, {user["full_name"].split(" ")[0]}</h1>', unsafe_allow_html=True)
+    st.caption(f"Rol: {user['role'].capitalize()} · {user.get('program_or_department', '')}")
+    st.markdown("---")
+
+    try:
+        items = storage.get_all_items()
+        my_open_loans = storage.get_open_loans_for_user(user["id"])
+        overdue = loans_core.get_overdue_loans(storage)
+    except Exception as e:
+        st.error(f"No se pudieron cargar las estadisticas: {e}")
+        items, my_open_loans, overdue = [], [], []
+
+    if user["role"] == "estudiante":
+        c1, c2, c3 = st.columns(3)
+        c1.metric("📦 Items en catalogo", len(items))
+        c2.metric("📋 Mis prestamos activos", len(my_open_loans))
+        c3.metric("⚠️ Vencidos (mios)", len([l for l in my_open_loans if loans_core.is_overdue(l)]))
+    else:
+        all_open = storage.get_all_loans(status="out")
+        users = storage.get_all_users()
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("📦 Items en catalogo", len(items))
+        c2.metric("📋 Prestamos activos", len(all_open))
+        c3.metric("⚠️ Vencidos", len(overdue))
+        c4.metric("👥 Usuarios registrados", len(users))
+
+    st.markdown("---")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("Accesos rapidos")
+        pages = st.session_state.get("pages", {})
+        if st.button("🛰️ Escanear codigo", use_container_width=True) and "escanear" in pages:
+            st.switch_page(pages["escanear"])
+        if user["role"] != "estudiante" and "inventario" in pages:
+            if st.button("📦 Ir a Inventario", use_container_width=True):
+                st.switch_page(pages["inventario"])
+        if "prestamos" in pages and st.button("📋 Ver prestamos", use_container_width=True):
+            st.switch_page(pages["prestamos"])
+
+    with col2:
+        st.subheader("⚠️ Alertas")
+        low_stock = [
+            i for i in items
+            if i.get("item_type") != "master"
+            and i.get("min_stock_alert") is not None
+            and storage.get_available_quantity(i["id"]) <= i.get("min_stock_alert", 0)
+        ]
+        if not low_stock and not overdue:
+            st.success("Sin alertas por el momento.")
+        else:
+            with st.container(height=220):
+                for i in low_stock:
+                    st.warning(f"**{i.get('name')}**: disponibilidad baja ({storage.get_available_quantity(i['id'])} u.)")
+                if user["role"] != "estudiante":
+                    for l in overdue:
+                        st.error(f"**Vencido:** '{l.get('item_name')}' con {l.get('user_name')}")

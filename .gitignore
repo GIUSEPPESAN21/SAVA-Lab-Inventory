@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+SAVA_LAB_DB.xlsx
+.streamlit/secrets.toml
