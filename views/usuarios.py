@@ -4,12 +4,16 @@ Acceso exclusivo del rol 'maestro'."""
 
 import streamlit as st
 
+from core.ui import page_header
+
 ROLES = ["estudiante", "profesor", "maestro"]
 
 
 def render():
     storage = st.session_state.storage
     current_user = st.session_state.user
+
+    page_header("Usuarios", icon="👥", subtitle="Gestión de cuentas, roles y lista blanca de profesores")
 
     tab_usuarios, tab_whitelist = st.tabs(["👥 Usuarios", "✅ Lista blanca de profesores"])
 

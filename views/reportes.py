@@ -8,10 +8,13 @@ import streamlit as st
 
 from core import loans as loans_core
 from core import reports
+from core.ui import page_header
 
 
 def render():
     storage = st.session_state.storage
+
+    page_header("Reportes", icon="📊", subtitle="Analítica de uso del laboratorio")
 
     try:
         items = storage.get_all_items(include_retired=True)

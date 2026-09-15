@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-core/barcode.py - Resolucion de codigos de barras maestro/hijo/individual.
+core/barcode.py - Resolucion de codigos de barras (ver core/labels.py para
+los nombres que ve el usuario).
 
 Convencion de codigos de barras del laboratorio:
-- "master": codigo pegado a un CONTENEDOR (caja, gabinete, kit). No tiene
-  cantidad propia; agrupa items hijos.
-- "child": codigo pegado a un producto individual que vive DENTRO de un
-  contenedor maestro (parent_id apunta al id del maestro).
-- "standalone": codigo pegado a un producto individual que no pertenece
-  a ningun contenedor.
+- "master" (Contenedor Principal): codigo pegado a una caja, gabinete o kit.
+  No tiene cantidad propia; agrupa Contenedores de Caracteristica.
+- "child" (Contenedor de Caracteristica): codigo de una subdivision DENTRO
+  de un Contenedor Principal (parent_id apunta al id del maestro).
+- "standalone" (Item Individual): codigo de un producto que no pertenece
+  a ningun Contenedor Principal.
 """
 
 import logging

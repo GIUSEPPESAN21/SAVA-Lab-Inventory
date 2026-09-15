@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
-"""views/escanear.py - Flujo central: escanear codigo maestro/hijo/individual,
-dar salida (checkout) y registrar reingreso (checkin)."""
+"""views/escanear.py - Flujo central: escanear codigo de Contenedor Principal,
+Contenedor de Caracteristica o Item Individual; dar salida (checkout) y
+registrar reingreso (checkin)."""
 
 from datetime import datetime, timedelta, timezone
 
 import streamlit as st
 
 from core import barcode, loans as loans_core, notifications
+from core.labels import ITEM_TYPE_BY_CHOICE, ITEM_TYPE_CHOICES, ITEM_TYPE_HELP, ITEM_TYPE_NAMES
+from core.ui import page_header
 
 
 def _render_item_actions(item: dict, parent: dict = None):
@@ -14,7 +17,7 @@ def _render_item_actions(item: dict, parent: dict = None):
     user = st.session_state.user
 
     if parent:
-        st.caption(f"📦 Pertenece al contenedor: **{parent.get('name')}** (`{parent.get('id')}`)")
+        st.caption(f"🗄️ Pertenece al {ITEM_TYPE_NAMES['master']}: **{parent.get('name')}** (`{parent.get('id')}`)")
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Disponibles", item["available"])
@@ -84,30 +87,29 @@ def _render_new_item_wizard(scanned_code: str):
         st.info("Pide a un profesor o al administrador del laboratorio que registre este item.")
         return
 
-    item_kind = st.radio(
-        "¿Que quieres registrar?",
-        ("Item individual", "Contenedor maestro nuevo", "Item dentro de un contenedor existente"),
-        horizontal=True,
-    )
+    item_kind = st.radio("¿Qué quieres registrar?", ITEM_TYPE_CHOICES, horizontal=True)
+    st.caption(ITEM_TYPE_HELP[ITEM_TYPE_BY_CHOICE[item_kind]])
 
     with st.form("new_item_form"):
-        name = st.text_input("Nombre")
+        name_label = "Nombre / Característica" if item_kind == ITEM_TYPE_NAMES["child"] else "Nombre"
+        name_placeholder = "Ej: Resistencias 220 Ω" if item_kind == ITEM_TYPE_NAMES["child"] else None
+        name = st.text_input(name_label, placeholder=name_placeholder)
         category = st.text_input("Categoria", placeholder="Electronica, Mecanica, EPP, Herramientas...")
         description = st.text_area("Descripcion", height=80)
         location = st.text_input("Ubicacion fisica", placeholder="Estante 3, Gabinete B...")
 
         parent_id = ""
-        if item_kind == "Item dentro de un contenedor existente":
+        if item_kind == ITEM_TYPE_NAMES["child"]:
             masters = storage.get_all_masters()
             options = {f"{m['name']} ({m['id']})": m["id"] for m in masters}
             if not options:
-                st.warning("Todavia no hay contenedores maestros creados.")
+                st.warning(f"Todavia no hay {ITEM_TYPE_NAMES['master'].lower()}es creados.")
             else:
-                choice = st.selectbox("Contenedor maestro", list(options.keys()))
+                choice = st.selectbox(ITEM_TYPE_NAMES["master"], list(options.keys()))
                 parent_id = options.get(choice, "")
 
         quantity, min_alert = 0, 0
-        if item_kind != "Contenedor maestro nuevo":
+        if item_kind != ITEM_TYPE_NAMES["master"]:
             quantity = st.number_input("Cantidad inicial", min_value=0, step=1, value=1)
             min_alert = st.number_input("Umbral de alerta de disponibilidad", min_value=0, step=1, value=0)
 
@@ -116,17 +118,12 @@ def _render_new_item_wizard(scanned_code: str):
         if submitted:
             if not name:
                 st.error("El nombre es obligatorio.")
-            elif item_kind == "Item dentro de un contenedor existente" and not parent_id:
-                st.error("Debes seleccionar un contenedor maestro.")
+            elif item_kind == ITEM_TYPE_NAMES["child"] and not parent_id:
+                st.error(f"Debes seleccionar un {ITEM_TYPE_NAMES['master']}.")
             else:
-                item_type = {
-                    "Item individual": "standalone",
-                    "Contenedor maestro nuevo": "master",
-                    "Item dentro de un contenedor existente": "child",
-                }[item_kind]
                 data = {
                     "name": name, "category": category, "description": description,
-                    "item_type": item_type, "parent_id": parent_id, "unit": "unidad",
+                    "item_type": ITEM_TYPE_BY_CHOICE[item_kind], "parent_id": parent_id, "unit": "unidad",
                     "quantity": int(quantity), "location": location,
                     "min_stock_alert": int(min_alert), "status": "active",
                     "created_by": user["institutional_email"],
@@ -143,7 +140,7 @@ def _render_new_item_wizard(scanned_code: str):
 def render():
     storage = st.session_state.storage
 
-    st.info("Conecta tu lector de codigo de barras USB. Haz clic en el campo y escanea, o escribe el codigo manualmente.")
+    page_header("Escanear", icon="🛰️", subtitle="Conecta tu lector USB o escribe el código manualmente")
 
     with st.form("scan_form", clear_on_submit=True):
         code = st.text_input("Codigo de barras", placeholder="Escanea aqui...")
@@ -166,13 +163,13 @@ def render():
         _render_new_item_wizard(result["barcode"])
     elif result["status"] == "found_master":
         item = result["item"]
-        st.success(f"📦 Contenedor: **{item['name']}** (`{item['id']}`)")
+        st.success(f"🗄️ {ITEM_TYPE_NAMES['master']}: **{item['name']}** (`{item['id']}`)")
         if item.get("description"):
             st.caption(item["description"])
         st.caption(f"Ubicacion: {item.get('location') or 'N/A'}")
         children = result["children"]
         if not children:
-            st.info("Este contenedor todavia no tiene items registrados dentro.")
+            st.info(f"Este {ITEM_TYPE_NAMES['master']} todavía no tiene {ITEM_TYPE_NAMES['child']}s registrados dentro.")
         else:
             for child in children:
                 with st.expander(f"{child['name']} — {child['available']} disponibles"):

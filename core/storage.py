@@ -270,17 +270,17 @@ def _validate_item_data(data: dict, df_items: pd.DataFrame, custom_id: str) -> N
 
     if item_type == "child":
         if not parent_id:
-            raise ValueError("Un item hijo debe tener un contenedor maestro asignado.")
+            raise ValueError("Un Contenedor de Característica debe tener un Contenedor Principal asignado.")
         if parent_id == custom_id:
             raise ValueError("Un item no puede ser su propio contenedor.")
         parent_rows = df_items[df_items["id"] == parent_id]
         if parent_rows.empty:
-            raise ValueError(f"El contenedor maestro '{parent_id}' no existe.")
+            raise ValueError(f"El Contenedor Principal '{parent_id}' no existe.")
         if parent_rows.iloc[0]["item_type"] != "master":
-            raise ValueError(f"'{parent_id}' no es un contenedor maestro valido.")
+            raise ValueError(f"'{parent_id}' no es un Contenedor Principal valido.")
     else:
         if parent_id:
-            raise ValueError("Solo los items de tipo 'child' pueden tener un contenedor maestro.")
+            raise ValueError("Solo un Contenedor de Característica puede tener un Contenedor Principal asignado.")
 
 
 def firestore_retry(func):

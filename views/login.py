@@ -4,6 +4,7 @@
 import streamlit as st
 
 from core import auth
+from core.ui import centered_logo
 
 LOGO_URL = (
     "https://upload.wikimedia.org/wikipedia/commons/d/db/"
@@ -16,14 +17,14 @@ def render():
 
     col_a, col_b, col_c = st.columns([1, 2, 1])
     with col_b:
-        st.image(LOGO_URL, width=110)
+        centered_logo(LOGO_URL, width=110)
         st.markdown(
-            '<h1 class="main-header" style="margin-bottom:0;">Inventario de Laboratorio</h1>',
+            '<h1 class="main-header" style="margin-top:0.5rem; margin-bottom:0;">Inventario de Laboratorio</h1>',
             unsafe_allow_html=True,
         )
         st.markdown(
-            '<p style="text-align:center; color: var(--subtle-text-color);">'
-            "UNIMINUTO · Gestión de inventario y préstamos para laboratorios de ingeniería</p>",
+            '<p class="page-subtitle">UNIMINUTO · Gestión de inventario y préstamos '
+            "para laboratorios de ingeniería</p>",
             unsafe_allow_html=True,
         )
         st.markdown("---")

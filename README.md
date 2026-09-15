@@ -5,8 +5,9 @@
 
 Sistema de gestión de inventario y préstamos (salida/reingreso) para el
 **laboratorio de ingeniería de UNIMINUTO**, con códigos de barras jerárquicos
-(contenedor maestro + ítems hijos) y control de acceso por roles usando el
-correo institucional (estudiante / profesor / perfil maestro).
+(Contenedor Principal + Contenedores de Característica) y control de acceso
+por roles usando el correo institucional (estudiante / profesor / perfil
+maestro).
 
 Este repositorio es **público**; la base de datos (Excel con inventario,
 préstamos y usuarios) vive en un repositorio **privado** aparte:
@@ -17,12 +18,14 @@ Streamlit (ver sección de Configuración). La base de datos se entrega
 
 ## Conceptos clave
 
-- **Contenedor maestro**: un código de barras pegado a una caja, gabinete o kit
-  que agrupa varios productos. No tiene cantidad propia.
-- **Ítem hijo**: un código de barras individual que vive dentro de un
-  contenedor maestro (`parent_id` apunta al maestro).
-- **Ítem individual (standalone)**: un producto con código propio que no
-  pertenece a ningún contenedor.
+- **Contenedor Principal** (`master`): un código de barras pegado a una caja,
+  gabinete o kit que agrupa varios productos. No tiene cantidad propia.
+- **Contenedor de Característica** (`child`): un código de barras individual
+  para una subdivisión específica DENTRO de un Contenedor Principal (ej.
+  "Resistencias 220 Ω", "Tornillos M4"); `parent_id` apunta al Contenedor
+  Principal.
+- **Ítem Individual** (`standalone`): un producto con código propio que no
+  pertenece a ningún Contenedor Principal.
 - **Disponibilidad en vivo**: `disponible = cantidad_total - préstamos abiertos`.
   La cantidad total solo cambia por alta/ajuste/baja; cada salida y reingreso
   queda registrado en el libro mayor de préstamos (`loans`), nunca se resta
@@ -61,7 +64,9 @@ core/
   config.py              Acceso seguro a st.secrets (nunca lanza si faltan)
   storage.py             Capa de datos: Excel local + sync a GitHub
   auth.py                 Registro, login, reglas de rol
-  barcode.py              Resolución de códigos maestro/hijo/individual
+  labels.py                Nomenclatura unica de tipos de item (UI)
+  ui.py                    Componentes visuales compartidos (logo, encabezados)
+  barcode.py              Resolución de códigos Principal/Característica/Individual
   loans.py                Checkout / checkin / vencidos
   notifications.py        Alertas WhatsApp opcionales (Twilio)
   reports.py              Analítica y exportación a Excel
@@ -79,9 +84,10 @@ En **Inventario → Importar CSV masivo** puedes subir un CSV con columnas
 para cargar de una sola vez el catálogo inicial del laboratorio (útil para tu
 serie extensa de códigos de barras ya impresos). El botón de la pestaña
 descarga una plantilla de ejemplo. Toda la importación se sincroniza a
-GitHub en un solo commit, no uno por fila. Si vas a importar contenedores
-maestros junto con sus items hijos, coloca la fila del maestro **antes** que
-la de sus hijos en el CSV.
+GitHub en un solo commit, no uno por fila. Si vas a importar Contenedores
+Principales junto con sus Contenedores de Característica, coloca la fila del
+Contenedor Principal (`item_type=master`) **antes** que la de sus
+Contenedores de Característica (`item_type=child`) en el CSV.
 
 ## Pruebas automatizadas
 

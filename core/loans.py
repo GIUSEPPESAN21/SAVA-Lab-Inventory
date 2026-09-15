@@ -21,7 +21,7 @@ def checkout(storage, item_id: str, quantity: int, user: dict, expected_return_a
     if not item:
         return False, f"El item '{item_id}' no existe.", None
     if item.get("item_type") == "master":
-        return False, "No se puede dar salida a un contenedor maestro, solo a sus items.", None
+        return False, "No se puede dar salida a un Contenedor Principal, solo a los items que tiene dentro.", None
 
     available = storage.get_available_quantity(item_id)
     if quantity > available:

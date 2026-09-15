@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.2.0 — Interfaz centrada y nueva nomenclatura de contenedores
+
+- **Logo y títulos realmente centrados** en toda la app: nuevo helper
+  `core/ui.centered_logo` (HTML puro, no depende de columnas) y
+  `core/ui.page_header` para un encabezado consistente en cada página
+  (login, sidebar, Inicio, Escanear, Inventario, Préstamos, Usuarios,
+  Reportes, Mi perfil, Acerca de).
+- **Nueva nomenclatura de contenedores** (centralizada en `core/labels.py`,
+  la única fuente de estos nombres para toda la app):
+  - `master` → **Contenedor Principal** (la caja, kit o gabinete físico).
+  - `child` → **Contenedor de Característica** (una subdivisión dentro del
+    Contenedor Principal para una característica concreta, ej. "Resistencias
+    220 Ω", "Tornillos M4").
+  - `standalone` → **Ítem Individual**.
+  - Los formularios de alta ahora piden explícitamente el nombre como
+    "Nombre / Característica" cuando se crea un Contenedor de Característica.
+- Mensajes de error y validaciones de jerarquía (`core/storage.py`,
+  `core/loans.py`) actualizados a la nueva nomenclatura.
+- "Acerca de" rediseñada con un layout completamente centrado y apilado en
+  vez de la columna logo+texto asimétrica anterior.
+
 ## v1.1.0 — Rebranding UNIMINUTO y mejoras de experiencia
 
 - El proyecto pasa a llamarse **Inventario de Laboratorio UNIMINUTO**, con el

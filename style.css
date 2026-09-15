@@ -39,6 +39,20 @@ body, .stApp {
     margin-bottom: 0.5rem;
 }
 
+.page-subtitle {
+    text-align: center;
+    color: var(--subtle-text-color);
+    margin-top: -0.4rem;
+    margin-bottom: 0.75rem;
+    font-size: 1.02rem;
+}
+
+/* Centrado de respaldo para cualquier st.image (logos, etc.) */
+[data-testid="stImage"] {
+    display: flex;
+    justify-content: center;
+}
+
 .stMetric {
     background-color: var(--surface-color);
     padding: 1.25rem;

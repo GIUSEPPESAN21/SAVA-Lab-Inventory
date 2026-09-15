@@ -37,7 +37,7 @@ def test_checkout_fails_on_master_container(storage):
     ok, msg, loan = loans_core.checkout(storage, "CAJA-001", 1, user)
 
     assert ok is False
-    assert "contenedor maestro" in msg.lower()
+    assert "contenedor principal" in msg.lower()
 
 
 def test_checkout_rejects_non_positive_quantity(storage):

@@ -4,6 +4,7 @@
 import streamlit as st
 
 from core import auth
+from core.ui import page_header
 
 ROLE_LABELS = {"estudiante": "Estudiante", "profesor": "Profesor", "maestro": "Perfil maestro"}
 
@@ -12,7 +13,7 @@ def render():
     storage = st.session_state.storage
     user = st.session_state.user
 
-    st.subheader("👤 Mi perfil")
+    page_header("Mi perfil", icon="👤", subtitle="Tus datos y seguridad de la cuenta")
     c1, c2 = st.columns(2)
     c1.metric("Nombre", user["full_name"])
     c2.metric("Rol", ROLE_LABELS.get(user["role"], user["role"]))

@@ -5,6 +5,7 @@
 import streamlit as st
 
 from core import loans as loans_core
+from core.ui import page_header
 
 
 def _loan_row(storage, loan: dict, user: dict, key_prefix: str):
@@ -34,6 +35,8 @@ def _loan_row(storage, loan: dict, user: dict, key_prefix: str):
 def render():
     storage = st.session_state.storage
     user = st.session_state.user
+
+    page_header("Prestamos", icon="📋", subtitle="Salidas y reingresos del laboratorio")
 
     if user["role"] == "estudiante":
         st.subheader("📋 Mis prestamos")

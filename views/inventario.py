@@ -5,9 +5,12 @@ Solo profesor/maestro pueden crear, editar o dar de baja."""
 import pandas as pd
 import streamlit as st
 
+from core.labels import ITEM_TYPE_BY_CHOICE, ITEM_TYPE_CHOICES, ITEM_TYPE_HELP, ITEM_TYPE_LABELS, ITEM_TYPE_NAMES
+from core.ui import page_header
+
 
 def _edit_item_form(storage, item: dict, user: dict):
-    st.subheader(f"✏️ Editando: {item.get('name')}")
+    st.markdown(f'<h2 style="text-align:center;">✏️ Editando: {item.get("name")}</h2>', unsafe_allow_html=True)
     with st.form("edit_item_form"):
         name = st.text_input("Nombre", value=item.get("name", ""))
         category = st.text_input("Categoria", value=item.get("category", ""))
@@ -58,6 +61,8 @@ def render():
     storage = st.session_state.storage
     user = st.session_state.user
 
+    page_header("Inventario", icon="📦", subtitle="Catálogo, alta, edición e importación masiva")
+
     if st.session_state.get("editing_item_id"):
         item = storage.get_item(st.session_state.editing_item_id)
         if not item:
@@ -68,7 +73,7 @@ def render():
         return
 
     tab_catalogo, tab_nuevo, tab_import = st.tabs(
-        ["📋 Catalogo", "➕ Nuevo item / contenedor", "📥 Importar CSV masivo"]
+        ["📋 Catalogo", "➕ Nuevo item", "📥 Importar CSV masivo"]
     )
 
     with tab_catalogo:
@@ -82,10 +87,9 @@ def render():
         search = f1.text_input("Buscar por nombre, categoria o codigo")
         categories = sorted({i.get("category") for i in items if i.get("category")})
         locations = sorted({i.get("location") for i in items if i.get("location")})
-        type_labels = {"master": "📦 Contenedor", "child": "🔹 Item (en contenedor)", "standalone": "🔸 Item"}
         cat_filter = f2.selectbox("Categoria", ["Todas"] + categories)
         loc_filter = f3.selectbox("Ubicacion", ["Todas"] + locations)
-        type_filter = f4.selectbox("Tipo", ["Todos"] + list(type_labels.values()))
+        type_filter = f4.selectbox("Tipo", ["Todos"] + list(ITEM_TYPE_LABELS.values()))
 
         if search:
             s = search.lower()
@@ -100,7 +104,7 @@ def render():
         if loc_filter != "Todas":
             items = [i for i in items if i.get("location") == loc_filter]
         if type_filter != "Todos":
-            items = [i for i in items if type_labels.get(i.get("item_type")) == type_filter]
+            items = [i for i in items if ITEM_TYPE_LABELS.get(i.get("item_type")) == type_filter]
 
         st.caption(f"{len(items)} item(s) encontrados.")
         if not items:
@@ -108,7 +112,7 @@ def render():
         for item in items:
             with st.container(border=True):
                 c1, c2, c3, c4, c5 = st.columns([4, 2, 2, 1, 1])
-                tag = type_labels.get(item.get("item_type"), item.get("item_type"))
+                tag = ITEM_TYPE_LABELS.get(item.get("item_type"), item.get("item_type"))
                 c1.markdown(f"**{item.get('name')}**")
                 c1.caption(f"{tag} · ID: {item.get('id')} · {item.get('category') or 'Sin categoria'}")
                 if item.get("item_type") == "master":
@@ -123,30 +127,30 @@ def render():
 
     with tab_nuevo:
         st.caption("También puedes registrar un item nuevo directamente escaneando su código en la sección Escanear.")
-        item_kind = st.radio(
-            "¿Que quieres registrar?",
-            ("Item individual", "Contenedor maestro nuevo", "Item dentro de un contenedor existente"),
-            horizontal=True, key="inv_new_kind",
-        )
+        item_kind = st.radio("¿Qué quieres registrar?", ITEM_TYPE_CHOICES, horizontal=True, key="inv_new_kind")
+        st.caption(ITEM_TYPE_HELP[ITEM_TYPE_BY_CHOICE[item_kind]])
+
         with st.form("inv_new_item_form"):
             new_id = st.text_input("Codigo de barras")
-            name = st.text_input("Nombre")
+            name_label = "Nombre / Característica" if item_kind == ITEM_TYPE_NAMES["child"] else "Nombre"
+            name_placeholder = "Ej: Resistencias 220 Ω" if item_kind == ITEM_TYPE_NAMES["child"] else None
+            name = st.text_input(name_label, placeholder=name_placeholder)
             category = st.text_input("Categoria")
             description = st.text_area("Descripcion", height=80)
             location = st.text_input("Ubicacion fisica")
 
             parent_id = ""
-            if item_kind == "Item dentro de un contenedor existente":
+            if item_kind == ITEM_TYPE_NAMES["child"]:
                 masters = storage.get_all_masters()
                 options = {f"{m['name']} ({m['id']})": m["id"] for m in masters}
                 if options:
-                    choice = st.selectbox("Contenedor maestro", list(options.keys()))
+                    choice = st.selectbox(ITEM_TYPE_NAMES["master"], list(options.keys()))
                     parent_id = options.get(choice, "")
                 else:
-                    st.warning("Todavia no hay contenedores maestros creados.")
+                    st.warning(f"Todavia no hay {ITEM_TYPE_NAMES['master'].lower()}es creados.")
 
             quantity, min_alert = 0, 0
-            if item_kind != "Contenedor maestro nuevo":
+            if item_kind != ITEM_TYPE_NAMES["master"]:
                 quantity = st.number_input("Cantidad inicial", min_value=0, step=1, value=1, key="inv_new_qty")
                 min_alert = st.number_input("Umbral de alerta", min_value=0, step=1, value=0, key="inv_new_alert")
 
@@ -157,14 +161,12 @@ def render():
                     st.error("Codigo de barras y nombre son obligatorios.")
                 elif storage.get_item(new_id):
                     st.error("Ya existe un item con ese codigo.")
+                elif item_kind == ITEM_TYPE_NAMES["child"] and not parent_id:
+                    st.error(f"Debes seleccionar un {ITEM_TYPE_NAMES['master']}.")
                 else:
-                    item_type = {
-                        "Item individual": "standalone", "Contenedor maestro nuevo": "master",
-                        "Item dentro de un contenedor existente": "child",
-                    }[item_kind]
                     data = {
                         "name": name, "category": category, "description": description,
-                        "item_type": item_type, "parent_id": parent_id, "unit": "unidad",
+                        "item_type": ITEM_TYPE_BY_CHOICE[item_kind], "parent_id": parent_id, "unit": "unidad",
                         "quantity": int(quantity), "location": location,
                         "min_stock_alert": int(min_alert), "status": "active",
                         "created_by": user["institutional_email"],
@@ -181,10 +183,15 @@ def render():
             "Sube un CSV para registrar o actualizar muchos items de una sola vez "
             "(ideal para cargar el inventario inicial del laboratorio)."
         )
+        st.caption(
+            "Usa 'master' para un Contenedor Principal, 'child' para un Contenedor de "
+            "Característica (con su 'parent_id' apuntando al maestro) y 'standalone' "
+            "para un Ítem Individual en la columna item_type."
+        )
         template_csv = (
             "id,name,category,description,item_type,parent_id,unit,quantity,location,min_stock_alert\n"
-            "CAJA-001,Kit de resistencias,Electronica,Kit surtido de resistencias,master,,unidad,0,Estante 3,0\n"
-            "RES-220-01,Resistencia 220 ohm,Electronica,Paquete de 10,child,CAJA-001,paquete,20,Estante 3,5\n"
+            "CAJA-001,Caja de Electronica,Electronica,Contenedor principal de componentes,master,,unidad,0,Estante 3,0\n"
+            "RES-220-01,Resistencias 220 ohm,Electronica,Paquete de 10,child,CAJA-001,paquete,20,Estante 3,5\n"
             "MULT-01,Multimetro digital,Instrumentacion,Fluke 115,standalone,,unidad,4,Gabinete B,1\n"
         )
         st.download_button(

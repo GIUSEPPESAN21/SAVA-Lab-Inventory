@@ -11,6 +11,7 @@ import streamlit as st
 
 from core.storage import LabStorage
 from core import auth
+from core.ui import centered_logo
 
 st.set_page_config(
     page_title="Inventario de Laboratorio UNIMINUTO",
@@ -92,13 +93,12 @@ LOGO_URL = (
 )
 
 with st.sidebar:
-    logo_col1, logo_col2, logo_col3 = st.columns([1, 2, 1])
-    with logo_col2:
-        st.image(LOGO_URL, width=70)
+    centered_logo(LOGO_URL, width=70)
     st.markdown(
-        '<p style="text-align:center; font-weight:600; margin-top:-8px;">Laboratorio de Ingeniería</p>',
+        '<p style="text-align:center; font-weight:600; margin-top:4px;">Laboratorio de Ingeniería</p>',
         unsafe_allow_html=True,
     )
+    st.markdown("---")
     st.markdown(
         f"""
         <div class="user-chip">
