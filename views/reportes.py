@@ -30,6 +30,27 @@ def render():
         c3.metric("Items activos", len([i for i in items if i.get("status") == "active"]))
 
         st.markdown("---")
+        import plotly.express as px
+
+        col_a, col_b = st.columns(2)
+        with col_a:
+            st.subheader("📅 Salidas por dia (ultimos 30 dias)")
+            df_daily = reports.loans_per_day(all_loans)
+            if df_daily.empty:
+                st.info("Sin salidas registradas en los ultimos 30 dias.")
+            else:
+                fig = px.bar(df_daily, x="Fecha", y="Salidas")
+                st.plotly_chart(fig, use_container_width=True)
+        with col_b:
+            st.subheader("🗂️ Items activos por categoria")
+            df_cat = reports.items_by_category(items)
+            if df_cat.empty:
+                st.info("Sin items activos para graficar.")
+            else:
+                fig2 = px.pie(df_cat, names="Categoria", values="Items", hole=0.45)
+                st.plotly_chart(fig2, use_container_width=True)
+
+        st.markdown("---")
         st.subheader("🏆 Items mas prestados")
         st.dataframe(reports.most_borrowed_items(all_loans), use_container_width=True, hide_index=True)
 

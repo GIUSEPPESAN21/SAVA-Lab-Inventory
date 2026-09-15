@@ -13,7 +13,8 @@ Regla de seguridad clave: el rol NUNCA se elige libremente en el registro.
 import logging
 
 import bcrypt
-import streamlit as st
+
+from core.config import safe_secret
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ DEFAULT_ALLOWED_DOMAINS = ["uniminuto.edu.co", "uniandes.edu.co"]
 
 
 def get_allowed_domains() -> list:
-    raw = st.secrets.get("ALLOWED_EMAIL_DOMAINS", "")
+    raw = safe_secret("ALLOWED_EMAIL_DOMAINS", "")
     if raw:
         return [d.strip().lower() for d in raw.split(",") if d.strip()]
     return DEFAULT_ALLOWED_DOMAINS
@@ -51,8 +52,8 @@ def ensure_master_seed(storage) -> None:
     try:
         if storage.count_masters() > 0:
             return
-        master_email = st.secrets.get("MASTER_EMAIL", "")
-        master_password = st.secrets.get("MASTER_INITIAL_PASSWORD", "")
+        master_email = safe_secret("MASTER_EMAIL", "")
+        master_password = safe_secret("MASTER_INITIAL_PASSWORD", "")
         if not master_email or not master_password:
             return
         if storage.get_user_by_email(master_email):

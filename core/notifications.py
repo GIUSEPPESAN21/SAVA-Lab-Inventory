@@ -9,7 +9,7 @@ silencio (con log de advertencia) si no esta disponible o configurado.
 
 import logging
 
-import streamlit as st
+from core.config import safe_secret
 
 logger = logging.getLogger(__name__)
 
@@ -20,11 +20,12 @@ REQUIRED_SECRETS = [
 
 
 def _get_client():
-    if not all(k in st.secrets for k in REQUIRED_SECRETS):
+    values = {k: safe_secret(k, "") for k in REQUIRED_SECRETS}
+    if not all(values.values()):
         return None
     try:
         from twilio.rest import Client
-        return Client(st.secrets["TWILIO_ACCOUNT_SID"], st.secrets["TWILIO_AUTH_TOKEN"])
+        return Client(values["TWILIO_ACCOUNT_SID"], values["TWILIO_AUTH_TOKEN"])
     except Exception as e:
         logger.warning(f"Twilio no disponible: {e}")
         return None
@@ -35,8 +36,8 @@ def send_whatsapp_alert(message: str) -> bool:
     if not client:
         return False
     try:
-        from_number = st.secrets["TWILIO_WHATSAPP_FROM_NUMBER"]
-        to_number = st.secrets["DESTINATION_WHATSAPP_NUMBER"]
+        from_number = safe_secret("TWILIO_WHATSAPP_FROM_NUMBER")
+        to_number = safe_secret("DESTINATION_WHATSAPP_NUMBER")
         client.messages.create(from_=f"whatsapp:{from_number}", body=message, to=f"whatsapp:{to_number}")
         return True
     except Exception as e:

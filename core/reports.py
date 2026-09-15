@@ -36,6 +36,27 @@ def top_users_by_loans(loans: list, top_n: int = 10) -> pd.DataFrame:
     return summary.sort_values("Prestamos", ascending=False).head(top_n)
 
 
+def loans_per_day(loans: list, days: int = 30) -> pd.DataFrame:
+    cutoff = pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=days)
+    rows = [l for l in loans if l.get("checkout_at") and pd.Timestamp(l["checkout_at"]) >= cutoff]
+    if not rows:
+        return pd.DataFrame(columns=["Fecha", "Salidas"])
+    df = pd.DataFrame(rows)
+    df["Fecha"] = pd.to_datetime(df["checkout_at"]).dt.date
+    daily = df.groupby("Fecha").size().reset_index(name="Salidas")
+    return daily
+
+
+def items_by_category(items: list) -> pd.DataFrame:
+    relevant = [i for i in items if i.get("status") == "active"]
+    if not relevant:
+        return pd.DataFrame(columns=["Categoria", "Items"])
+    df = pd.DataFrame(relevant)
+    df["category"] = df["category"].replace("", "Sin categoria").fillna("Sin categoria")
+    summary = df.groupby("category").size().reset_index(name="Items").rename(columns={"category": "Categoria"})
+    return summary.sort_values("Items", ascending=False)
+
+
 def export_full_database(items: list, users: list, loans: list) -> io.BytesIO:
     df_items = pd.DataFrame(items)
     df_users = pd.DataFrame(users)

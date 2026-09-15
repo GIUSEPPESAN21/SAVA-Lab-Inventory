@@ -56,22 +56,23 @@ if not st.session_state.user:
 
 user = st.session_state.user
 
-from views import inicio, escanear, inventario, prestamos, usuarios, reportes, acerca_de
+from views import inicio, escanear, inventario, prestamos, usuarios, reportes, acerca_de, perfil
 
 pages = {
-    "inicio": st.Page(inicio.render, title="Inicio", icon="🏠", default=True),
-    "escanear": st.Page(escanear.render, title="Escanear", icon="🛰️"),
-    "prestamos": st.Page(prestamos.render, title="Prestamos", icon="📋"),
+    "inicio": st.Page(inicio.render, title="Inicio", icon="🏠", default=True, url_path="inicio"),
+    "escanear": st.Page(escanear.render, title="Escanear", icon="🛰️", url_path="escanear"),
+    "prestamos": st.Page(prestamos.render, title="Prestamos", icon="📋", url_path="prestamos"),
 }
 
 if user["role"] in ("profesor", "maestro"):
-    pages["inventario"] = st.Page(inventario.render, title="Inventario", icon="📦")
-    pages["reportes"] = st.Page(reportes.render, title="Reportes", icon="📊")
+    pages["inventario"] = st.Page(inventario.render, title="Inventario", icon="📦", url_path="inventario")
+    pages["reportes"] = st.Page(reportes.render, title="Reportes", icon="📊", url_path="reportes")
 
 if user["role"] == "maestro":
-    pages["usuarios"] = st.Page(usuarios.render, title="Usuarios", icon="👥")
+    pages["usuarios"] = st.Page(usuarios.render, title="Usuarios", icon="👥", url_path="usuarios")
 
-pages["acerca_de"] = st.Page(acerca_de.render, title="Acerca de SAVA", icon="🏢")
+pages["perfil"] = st.Page(perfil.render, title="Mi perfil", icon="👤", url_path="perfil")
+pages["acerca_de"] = st.Page(acerca_de.render, title="Acerca de SAVA", icon="🏢", url_path="acerca-de")
 
 st.session_state.pages = pages
 

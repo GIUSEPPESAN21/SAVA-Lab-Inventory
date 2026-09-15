@@ -1,14 +1,24 @@
 # SAVA Lab Inventory
 
+![CI](https://github.com/GIUSEPPESAN21/SAVA-Lab-Inventory/actions/workflows/ci.yml/badge.svg)
+![License](https://img.shields.io/badge/license-MIT-blue)
+
 Sistema de gestión de inventario y préstamos (salida/reingreso) para laboratorios
 de ingeniería, con códigos de barras jerárquicos (contenedor maestro + ítems
 hijos) y control de acceso por roles usando correo institucional
 (estudiante / profesor / perfil maestro).
 
-> Borrador inicial generado a partir de la evolución del proyecto
+Este repositorio es **público**; la base de datos (Excel con datos de
+inventario, préstamos y usuarios) vive en un repositorio **privado** aparte:
+`GIUSEPPESAN21/SAVA-Lab-Database`. El código nunca contiene datos reales ni
+credenciales — ambos se inyectan en tiempo de ejecución vía Secrets de
+Streamlit (ver sección de Configuración).
+
+> Evolucionó desde un borrador inicial construido a partir del proyecto
 > [Software-Rapi-tienda-SAVA](https://github.com/GIUSEPPESAN21/Software-Rapi-tienda-SAVA),
 > adaptado de un punto de venta de tienda a un sistema de préstamos de
-> laboratorio. Ver la sección "Diferencias con la app de tienda" abajo.
+> laboratorio. Ver [CHANGELOG.md](CHANGELOG.md) y la sección "Diferencias
+> con la app de tienda" abajo.
 
 ## Conceptos clave
 
@@ -49,16 +59,43 @@ primera cuenta maestra se siembra desde los Secrets de Streamlit
 ```
 app.py                 Punto de entrada: config, CSS, sesión, navegación por rol
 core/
-  storage.py            Capa de datos: Excel local + sync a GitHub
-  auth.py                Registro, login, reglas de rol
-  barcode.py             Resolución de códigos maestro/hijo/individual
-  loans.py               Checkout / checkin / vencidos
-  notifications.py       Alertas WhatsApp opcionales (Twilio)
-  reports.py             Analítica y exportación a Excel
+  config.py              Acceso seguro a st.secrets (nunca lanza si faltan)
+  storage.py             Capa de datos: Excel local + sync a GitHub
+  auth.py                 Registro, login, reglas de rol
+  barcode.py              Resolución de códigos maestro/hijo/individual
+  loans.py                Checkout / checkin / vencidos
+  notifications.py        Alertas WhatsApp opcionales (Twilio)
+  reports.py              Analítica y exportación a Excel
 views/
-  login.py, inicio.py, escanear.py, inventario.py,
+  login.py, inicio.py, escanear.py, inventario.py, perfil.py,
   prestamos.py, usuarios.py, reportes.py, acerca_de.py
+tests/                  Pruebas unitarias de core/* (pytest, sin tocar Excel/GitHub)
+.github/workflows/ci.yml Integración continua: sintaxis + pruebas en cada push/PR
 ```
+
+## Importación masiva de inventario
+
+En **Inventario → Importar CSV masivo** puedes subir un CSV con columnas
+`id,name,category,description,item_type,parent_id,unit,quantity,location,min_stock_alert`
+para cargar de una sola vez el catálogo inicial del laboratorio (útil para
+tu serie extensa de códigos de barras ya impresos). El botón de la pestaña
+descarga una plantilla de ejemplo. Toda la importación se sincroniza a
+GitHub en un solo commit, no uno por fila. Si vas a importar contenedores
+maestros junto con sus items hijos, coloca la fila del maestro **antes**
+que la de sus hijos en el CSV (los hijos se validan contra los maestros ya
+procesados en esa misma importación).
+
+## Pruebas automatizadas
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest -q
+```
+
+Las pruebas usan un `FakeStorage` en memoria (`tests/conftest.py`) que
+cumple el mismo contrato público que `LabStorage`, por lo que corren en
+segundos y no requieren Excel, GitHub ni Secrets configurados. Se ejecutan
+automáticamente en cada push/PR vía GitHub Actions.
 
 ## Configuración (Secrets de Streamlit)
 
@@ -81,7 +118,7 @@ streamlit run app.py
 
 ## Diferencias con la app de tienda (Software-Rapi-tienda-SAVA)
 
-Este proyecto es un borrador nuevo, no un fork directo. Se reutilizó el patrón
+Este proyecto nació como código nuevo, no como un fork directo. Se reutilizó el patrón
 de persistencia (Excel + GitHub) porque ya está validado en producción, pero
 se rediseñó el modelo de negocio:
 

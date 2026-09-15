@@ -2,6 +2,7 @@
 """views/inventario.py - Catalogo, alta/edicion/baja de items y contenedores.
 Solo profesor/maestro pueden crear, editar o dar de baja."""
 
+import pandas as pd
 import streamlit as st
 
 
@@ -31,16 +32,22 @@ def _edit_item_form(storage, item: dict, user: dict):
                     **item, "name": name, "category": category, "description": description,
                     "location": location, "quantity": int(quantity), "min_stock_alert": int(min_alert),
                 }
-                storage.save_item(data, item["id"], is_new=False, actor_email=user["institutional_email"])
-                st.success("Item actualizado.")
-                st.session_state.editing_item_id = None
-                st.rerun()
+                try:
+                    storage.save_item(data, item["id"], is_new=False, actor_email=user["institutional_email"])
+                    st.success("Item actualizado.")
+                    st.session_state.editing_item_id = None
+                    st.rerun()
+                except ValueError as e:
+                    st.error(str(e))
 
         if retire:
-            storage.retire_item(item["id"], actor_email=user["institutional_email"])
-            st.success("Item dado de baja.")
-            st.session_state.editing_item_id = None
-            st.rerun()
+            ok, msg = storage.retire_item(item["id"], actor_email=user["institutional_email"])
+            if ok:
+                st.success(msg)
+                st.session_state.editing_item_id = None
+                st.rerun()
+            else:
+                st.error(msg)
 
         if cancel:
             st.session_state.editing_item_id = None
@@ -60,15 +67,25 @@ def render():
             _edit_item_form(storage, item, user)
         return
 
-    tab_catalogo, tab_nuevo = st.tabs(["📋 Catalogo", "➕ Nuevo item / contenedor"])
+    tab_catalogo, tab_nuevo, tab_import = st.tabs(
+        ["📋 Catalogo", "➕ Nuevo item / contenedor", "📥 Importar CSV masivo"]
+    )
 
     with tab_catalogo:
-        search = st.text_input("Buscar por nombre, categoria o codigo")
         try:
             items = storage.get_all_items()
         except Exception as e:
             st.error(f"Error al cargar el inventario: {e}")
             items = []
+
+        f1, f2, f3, f4 = st.columns(4)
+        search = f1.text_input("Buscar por nombre, categoria o codigo")
+        categories = sorted({i.get("category") for i in items if i.get("category")})
+        locations = sorted({i.get("location") for i in items if i.get("location")})
+        type_labels = {"master": "📦 Contenedor", "child": "🔹 Item (en contenedor)", "standalone": "🔸 Item"}
+        cat_filter = f2.selectbox("Categoria", ["Todas"] + categories)
+        loc_filter = f3.selectbox("Ubicacion", ["Todas"] + locations)
+        type_filter = f4.selectbox("Tipo", ["Todos"] + list(type_labels.values()))
 
         if search:
             s = search.lower()
@@ -78,15 +95,20 @@ def render():
                 or s in (i.get("category") or "").lower()
                 or s in (i.get("id") or "").lower()
             ]
+        if cat_filter != "Todas":
+            items = [i for i in items if i.get("category") == cat_filter]
+        if loc_filter != "Todas":
+            items = [i for i in items if i.get("location") == loc_filter]
+        if type_filter != "Todos":
+            items = [i for i in items if type_labels.get(i.get("item_type")) == type_filter]
 
+        st.caption(f"{len(items)} item(s) encontrados.")
         if not items:
             st.info("No se encontraron items.")
         for item in items:
             with st.container(border=True):
                 c1, c2, c3, c4, c5 = st.columns([4, 2, 2, 1, 1])
-                tag = {"master": "📦 Contenedor", "child": "🔹 Item (en contenedor)", "standalone": "🔸 Item"}.get(
-                    item.get("item_type"), item.get("item_type")
-                )
+                tag = type_labels.get(item.get("item_type"), item.get("item_type"))
                 c1.markdown(f"**{item.get('name')}**")
                 c1.caption(f"{tag} · ID: {item.get('id')} · {item.get('category') or 'Sin categoria'}")
                 if item.get("item_type") == "master":
@@ -147,6 +169,47 @@ def render():
                         "min_stock_alert": int(min_alert), "status": "active",
                         "created_by": user["institutional_email"],
                     }
-                    storage.save_item(data, new_id, is_new=True, actor_email=user["institutional_email"])
-                    st.success(f"'{name}' registrado correctamente.")
+                    try:
+                        storage.save_item(data, new_id, is_new=True, actor_email=user["institutional_email"])
+                        st.success(f"'{name}' registrado correctamente.")
+                        st.rerun()
+                    except ValueError as e:
+                        st.error(str(e))
+
+    with tab_import:
+        st.caption(
+            "Sube un CSV para registrar o actualizar muchos items de una sola vez "
+            "(ideal para cargar el inventario inicial del laboratorio)."
+        )
+        template_csv = (
+            "id,name,category,description,item_type,parent_id,unit,quantity,location,min_stock_alert\n"
+            "CAJA-001,Kit de resistencias,Electronica,Kit surtido de resistencias,master,,unidad,0,Estante 3,0\n"
+            "RES-220-01,Resistencia 220 ohm,Electronica,Paquete de 10,child,CAJA-001,paquete,20,Estante 3,5\n"
+            "MULT-01,Multimetro digital,Instrumentacion,Fluke 115,standalone,,unidad,4,Gabinete B,1\n"
+        )
+        st.download_button(
+            "⬇️ Descargar plantilla CSV", data=template_csv, file_name="plantilla_items_sava_lab.csv",
+            mime="text/csv", use_container_width=True,
+        )
+
+        uploaded = st.file_uploader("Archivo CSV", type=["csv"])
+        if uploaded is not None:
+            try:
+                df_upload = pd.read_csv(uploaded, dtype=str).fillna("")
+                st.dataframe(df_upload, use_container_width=True, hide_index=True)
+
+                if st.button("📤 Procesar importacion", type="primary", use_container_width=True):
+                    rows = df_upload.to_dict(orient="records")
+                    with st.spinner("Importando items..."):
+                        result = storage.bulk_upsert_items(rows, actor_email=user["institutional_email"])
+                    st.success(
+                        f"Importacion completada: {len(result['created'])} creados, "
+                        f"{len(result['updated'])} actualizados."
+                    )
+                    if result["errors"]:
+                        st.warning("Algunas filas no se importaron:")
+                        for err in result["errors"]:
+                            st.caption(f"⚠️ {err}")
                     st.rerun()
+            except Exception as e:
+                st.error(f"No se pudo leer el CSV: {e}")

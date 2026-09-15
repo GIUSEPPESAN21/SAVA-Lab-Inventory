@@ -19,6 +19,8 @@ import requests
 import streamlit as st
 from streamlit.runtime.scriptrunner import add_script_run_ctx
 
+from core.config import safe_secret
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -57,7 +59,7 @@ _excel_lock = Lock()
 # ---------------------------------------------------------------------------
 
 def _github_headers() -> dict:
-    token = st.secrets.get("GITHUB_TOKEN", "")
+    token = safe_secret("GITHUB_TOKEN", "")
     return {
         "Authorization": f"token {token}",
         "Accept": "application/vnd.github.v3+json",
@@ -65,14 +67,14 @@ def _github_headers() -> dict:
 
 
 def _github_api_url() -> str:
-    repo = st.secrets.get("GITHUB_REPO", "")
-    db_path = st.secrets.get("GITHUB_DB_PATH", EXCEL_PATH)
+    repo = safe_secret("GITHUB_REPO", "")
+    db_path = safe_secret("GITHUB_DB_PATH", EXCEL_PATH)
     return f"https://api.github.com/repos/{repo}/contents/{db_path}"
 
 
 def _is_github_configured() -> bool:
-    token = st.secrets.get("GITHUB_TOKEN", "")
-    repo = st.secrets.get("GITHUB_REPO", "")
+    token = safe_secret("GITHUB_TOKEN", "")
+    repo = safe_secret("GITHUB_REPO", "")
     if not token or not repo:
         logger.warning(
             "GitHub sync desactivado. Agrega GITHUB_TOKEN y GITHUB_REPO en los Secrets de Streamlit."
@@ -256,6 +258,31 @@ def _row_to_loan(row: pd.Series) -> dict:
     return _clean_nan(loan)
 
 
+VALID_ITEM_TYPES = ("master", "child", "standalone")
+
+
+def _validate_item_data(data: dict, df_items: pd.DataFrame, custom_id: str) -> None:
+    item_type = data.get("item_type", "standalone")
+    parent_id = (data.get("parent_id") or "").strip()
+
+    if item_type not in VALID_ITEM_TYPES:
+        raise ValueError(f"Tipo de item invalido: '{item_type}'.")
+
+    if item_type == "child":
+        if not parent_id:
+            raise ValueError("Un item hijo debe tener un contenedor maestro asignado.")
+        if parent_id == custom_id:
+            raise ValueError("Un item no puede ser su propio contenedor.")
+        parent_rows = df_items[df_items["id"] == parent_id]
+        if parent_rows.empty:
+            raise ValueError(f"El contenedor maestro '{parent_id}' no existe.")
+        if parent_rows.iloc[0]["item_type"] != "master":
+            raise ValueError(f"'{parent_id}' no es un contenedor maestro valido.")
+    else:
+        if parent_id:
+            raise ValueError("Solo los items de tipo 'child' pueden tener un contenedor maestro.")
+
+
 def firestore_retry(func):
     def wrapper(*args, **kwargs):
         max_retries = 3
@@ -311,6 +338,17 @@ class LabStorage:
             df_items = dfs["items"]
             df_hist = dfs["item_history"]
 
+            idx = df_items.index[df_items["id"] == custom_id].tolist()
+            existing = df_items.loc[idx[0]] if idx else None
+
+            item_type = existing["item_type"] if existing is not None else data.get("item_type", "standalone")
+            parent_id = existing["parent_id"] if existing is not None else (data.get("parent_id", "") or "")
+            _validate_item_data({"item_type": item_type, "parent_id": parent_id}, df_items, custom_id)
+
+            old_quantity = int(float(existing["quantity"])) if existing is not None and str(existing["quantity"]).strip() not in ("", "nan") else 0
+            new_quantity = int(data.get("quantity", 0) or 0)
+            quantity_delta = new_quantity - old_quantity if existing is not None else new_quantity
+
             history_type = "Alta" if is_new else "Ajuste"
             details = details or ("Item creado en el sistema." if is_new else "Item actualizado manualmente.")
 
@@ -319,10 +357,10 @@ class LabStorage:
                 "name": data.get("name", ""),
                 "category": data.get("category", ""),
                 "description": data.get("description", ""),
-                "item_type": data.get("item_type", "standalone"),
-                "parent_id": data.get("parent_id", "") or "",
+                "item_type": item_type,
+                "parent_id": parent_id,
                 "unit": data.get("unit", "unidad"),
-                "quantity": data.get("quantity", 0),
+                "quantity": new_quantity,
                 "location": data.get("location", ""),
                 "min_stock_alert": data.get("min_stock_alert", 0),
                 "status": data.get("status", "active"),
@@ -330,7 +368,6 @@ class LabStorage:
                 "updated_at": _now_str(),
             }
 
-            idx = df_items.index[df_items["id"] == custom_id].tolist()
             if idx:
                 for k, v in row.items():
                     if k == "created_by" and not is_new:
@@ -344,7 +381,7 @@ class LabStorage:
                 "item_id": custom_id,
                 "timestamp": _now_str(),
                 "type": history_type,
-                "quantity_change": data.get("quantity", 0),
+                "quantity_change": quantity_delta,
                 "actor_user_id": actor_email,
                 "details": details,
             }
@@ -355,23 +392,109 @@ class LabStorage:
             _write_and_sync(dfs)
             logger.info(f"Item guardado/actualizado: {custom_id}")
 
+    def bulk_upsert_items(self, rows: list, actor_email: str = "") -> dict:
+        """Crea/actualiza muchos items en UNA sola lectura+escritura+sync
+        (evita decenas de commits a GitHub en una importacion masiva)."""
+        created, updated, errors = [], [], []
+        with _excel_lock:
+            dfs = _read_excel()
+            df_items = dfs["items"]
+            df_hist = dfs["item_history"]
+
+            for raw in rows:
+                custom_id = str(raw.get("id", "")).strip()
+                name = str(raw.get("name", "")).strip()
+                if not custom_id or not name:
+                    errors.append(f"Fila omitida: id o nombre vacios ({raw}).")
+                    continue
+
+                item_type = str(raw.get("item_type", "standalone")).strip() or "standalone"
+                parent_id = str(raw.get("parent_id", "") or "").strip()
+                try:
+                    _validate_item_data({"item_type": item_type, "parent_id": parent_id}, df_items, custom_id)
+                except ValueError as e:
+                    errors.append(f"'{custom_id}': {e}")
+                    continue
+
+                is_new = df_items[df_items["id"] == custom_id].empty
+                row = {
+                    "id": custom_id,
+                    "name": name,
+                    "category": str(raw.get("category", "") or ""),
+                    "description": str(raw.get("description", "") or ""),
+                    "item_type": item_type,
+                    "parent_id": parent_id,
+                    "unit": str(raw.get("unit", "unidad") or "unidad"),
+                    "quantity": int(float(raw.get("quantity", 0) or 0)),
+                    "location": str(raw.get("location", "") or ""),
+                    "min_stock_alert": int(float(raw.get("min_stock_alert", 0) or 0)),
+                    "status": "active",
+                    "created_by": actor_email,
+                    "updated_at": _now_str(),
+                }
+
+                idx = df_items.index[df_items["id"] == custom_id].tolist()
+                if idx:
+                    for k, v in row.items():
+                        if k == "created_by":
+                            continue
+                        df_items.at[idx[0], k] = v
+                    updated.append(custom_id)
+                else:
+                    df_items = pd.concat([df_items, pd.DataFrame([row])], ignore_index=True)
+                    created.append(custom_id)
+
+                hist_row = {
+                    "id": _new_id(), "item_id": custom_id, "timestamp": _now_str(),
+                    "type": "Alta" if is_new else "Ajuste", "quantity_change": row["quantity"],
+                    "actor_user_id": actor_email, "details": "Importacion masiva (CSV).",
+                }
+                df_hist = pd.concat([df_hist, pd.DataFrame([hist_row])], ignore_index=True)
+
+            if created or updated:
+                dfs["items"] = df_items
+                dfs["item_history"] = df_hist
+                _write_and_sync(dfs)
+
+        return {"created": created, "updated": updated, "errors": errors}
+
     def retire_item(self, item_id: str, actor_email: str = ""):
         with _excel_lock:
             dfs = _read_excel()
             df_items = dfs["items"]
-            idx = df_items.index[df_items["id"] == item_id].tolist()
-            if idx:
-                df_items.at[idx[0], "status"] = "retired"
-                df_items.at[idx[0], "updated_at"] = _now_str()
-            dfs["items"] = df_items
+            df_loans = dfs["loans"]
 
-            hist_row = {
-                "id": _new_id(), "item_id": item_id, "timestamp": _now_str(),
-                "type": "Baja", "quantity_change": 0, "actor_user_id": actor_email,
-                "details": "Item dado de baja.",
-            }
-            dfs["item_history"] = pd.concat([dfs["item_history"], pd.DataFrame([hist_row])], ignore_index=True)
+            rows = df_items[df_items["id"] == item_id]
+            if rows.empty:
+                return False, "El item no existe."
+            item_type = rows.iloc[0]["item_type"]
+
+            ids_to_retire = [item_id]
+            if item_type == "master":
+                children_ids = df_items[df_items["parent_id"] == item_id]["id"].tolist()
+                ids_to_retire.extend(children_ids)
+
+            open_for_these = df_loans[df_loans["item_id"].isin(ids_to_retire) & (df_loans["status"] == "out")]
+            if not open_for_these.empty:
+                return False, "No se puede dar de baja: hay prestamos abiertos de este item o de items dentro de el."
+
+            now = _now_str()
+            hist_rows = []
+            for iid in ids_to_retire:
+                idx = df_items.index[df_items["id"] == iid].tolist()
+                if idx:
+                    df_items.at[idx[0], "status"] = "retired"
+                    df_items.at[idx[0], "updated_at"] = now
+                hist_rows.append({
+                    "id": _new_id(), "item_id": iid, "timestamp": now,
+                    "type": "Baja", "quantity_change": 0, "actor_user_id": actor_email,
+                    "details": "Item dado de baja." if iid == item_id else f"Baja en cascada (contenedor {item_id}).",
+                })
+
+            dfs["items"] = df_items
+            dfs["item_history"] = pd.concat([dfs["item_history"], pd.DataFrame(hist_rows)], ignore_index=True)
             _write_and_sync(dfs)
+            return True, "Item dado de baja correctamente."
 
     @firestore_retry
     def get_item(self, item_id: str):
