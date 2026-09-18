@@ -19,6 +19,7 @@ import requests
 import streamlit as st
 from streamlit.runtime.scriptrunner import add_script_run_ctx
 
+from core import barcode
 from core.config import safe_secret
 
 logging.basicConfig(level=logging.INFO)
@@ -261,9 +262,12 @@ def _row_to_loan(row: pd.Series) -> dict:
 VALID_ITEM_TYPES = ("master", "child", "standalone")
 
 
-def _validate_item_data(data: dict, df_items: pd.DataFrame, custom_id: str) -> None:
+def _validate_item_data(data: dict, df_items: pd.DataFrame, custom_id: str, is_new: bool = False) -> None:
     item_type = data.get("item_type", "standalone")
     parent_id = (data.get("parent_id") or "").strip()
+
+    if is_new:
+        barcode.validate_code_format(custom_id)
 
     if item_type not in VALID_ITEM_TYPES:
         raise ValueError(f"Tipo de item invalido: '{item_type}'.")
@@ -287,15 +291,23 @@ def firestore_retry(func):
     def wrapper(*args, **kwargs):
         max_retries = 3
         delay = 1
+        last_exception = None
         for attempt in range(max_retries):
             try:
                 return func(*args, **kwargs)
+            except ValueError:
+                # Error de validacion (datos invalidos): no es transitorio,
+                # reintentar no lo va a arreglar. Propagar de inmediato para
+                # que la UI muestre el mensaje real en vez de agotar reintentos.
+                raise
             except Exception as e:
+                last_exception = e
                 logger.warning(f"Intento {attempt + 1} fallo en {func.__name__}: {e}. Reintentando...")
-                time.sleep(delay)
-                delay *= 2
+                if attempt < max_retries - 1:
+                    time.sleep(delay)
+                    delay *= 2
         logger.error(f"Todos los reintentos fallaron para {func.__name__}.")
-        raise
+        raise last_exception
     return wrapper
 
 
@@ -343,7 +355,9 @@ class LabStorage:
 
             item_type = existing["item_type"] if existing is not None else data.get("item_type", "standalone")
             parent_id = existing["parent_id"] if existing is not None else (data.get("parent_id", "") or "")
-            _validate_item_data({"item_type": item_type, "parent_id": parent_id}, df_items, custom_id)
+            _validate_item_data(
+                {"item_type": item_type, "parent_id": parent_id}, df_items, custom_id, is_new=(existing is None)
+            )
 
             old_quantity = int(float(existing["quantity"])) if existing is not None and str(existing["quantity"]).strip() not in ("", "nan") else 0
             new_quantity = int(data.get("quantity", 0) or 0)
@@ -410,13 +424,14 @@ class LabStorage:
 
                 item_type = str(raw.get("item_type", "standalone")).strip() or "standalone"
                 parent_id = str(raw.get("parent_id", "") or "").strip()
+                is_new = df_items[df_items["id"] == custom_id].empty
                 try:
-                    _validate_item_data({"item_type": item_type, "parent_id": parent_id}, df_items, custom_id)
+                    _validate_item_data(
+                        {"item_type": item_type, "parent_id": parent_id}, df_items, custom_id, is_new=is_new
+                    )
                 except ValueError as e:
                     errors.append(f"'{custom_id}': {e}")
                     continue
-
-                is_new = df_items[df_items["id"] == custom_id].empty
                 row = {
                     "id": custom_id,
                     "name": name,

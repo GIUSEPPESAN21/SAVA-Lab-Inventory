@@ -31,6 +31,26 @@ Streamlit (ver sección de Configuración). La base de datos se entrega
   queda registrado en el libro mayor de préstamos (`loans`), nunca se resta
   directamente.
 
+## Nomenclatura de códigos de inventario (GLIOPS V3)
+
+Al dar de alta un item nuevo (formulario, escaneo o CSV masivo), su código
+debe cumplir uno de estos 3 formatos — validados por regex en
+`core/barcode.py`. Los items ya cargados con una nomenclatura anterior
+siguen funcionando con normalidad (solo se valida al crear, no al editar).
+
+| Formato | Patrón | Ejemplo | Uso |
+|---|---|---|---|
+| Estándar (5 niveles) | `[ESTANTERIA 1-3]-[PISO 1-6]-[CONTENEDOR]-[CAJA]-[ITEM]` | `1-2-05-12-001` | Inventario masivo: insumos, piezas, electrónica |
+| Mesas de trabajo | `M1-E[n]` o `M2-E[n]` | `M1-E2` | Equipos de alto valor (impresora 3D, cortadora láser...) |
+| Exhibición Lego | `E3-LM[n]` | `E3-LM07` | Modelos armados en la Estantería 3 |
+
+### Etiquetas imprimibles
+
+Desde el catálogo de Inventario o desde Escanear, el botón
+**🏷️ Descargar etiqueta** genera un PNG con el código de barras (Code128)
+centrado y el código en texto legible debajo, en un lienzo de 384×192px
+(≈ 50×25mm a 203dpi) listo para una impresora térmica **SAT TT 460**.
+
 ## Roles
 
 | Rol | Puede |
@@ -64,9 +84,9 @@ core/
   config.py              Acceso seguro a st.secrets (nunca lanza si faltan)
   storage.py             Capa de datos: Excel local + sync a GitHub
   auth.py                 Registro, login, reglas de rol
-  labels.py                Nomenclatura unica de tipos de item (UI)
+  labels.py                Nomenclatura de tipos de item (UI) y generación de etiquetas imprimibles
   ui.py                    Componentes visuales compartidos (logo, encabezados)
-  barcode.py              Resolución de códigos Principal/Característica/Individual
+  barcode.py              Validación/lectura de codigos (GLIOPS V3) y resolución de escaneo
   loans.py                Checkout / checkin / vencidos
   notifications.py        Alertas WhatsApp opcionales (Twilio)
   reports.py              Analítica y exportación a Excel

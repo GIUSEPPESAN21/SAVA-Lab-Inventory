@@ -5,6 +5,8 @@ Solo profesor/maestro pueden crear, editar o dar de baja."""
 import pandas as pd
 import streamlit as st
 
+from core import barcode
+from core import labels
 from core.labels import ITEM_TYPE_BY_CHOICE, ITEM_TYPE_CHOICES, ITEM_TYPE_HELP, ITEM_TYPE_LABELS, ITEM_TYPE_NAMES
 from core.ui import page_header
 
@@ -123,7 +125,18 @@ def render():
                 if c4.button("✏️", key=f"edit_{item['id']}", help="Editar"):
                     st.session_state.editing_item_id = item["id"]
                     st.rerun()
-                c5.write("")
+                if barcode.is_valid_code(item.get("id", "")):
+                    c5.download_button(
+                        "🏷️",
+                        data=labels.generate_label_png_bytes(item["id"]),
+                        file_name=f"etiqueta_{item['id']}.png",
+                        mime="image/png",
+                        key=f"label_{item['id']}",
+                        help="Descargar etiqueta (50x25mm, lista para la SAT TT 460)",
+                        use_container_width=True,
+                    )
+                else:
+                    c5.write("")
 
     with tab_nuevo:
         st.caption("También puedes registrar un item nuevo directamente escaneando su código en la sección Escanear.")
@@ -132,6 +145,7 @@ def render():
 
         with st.form("inv_new_item_form"):
             new_id = st.text_input("Codigo de barras")
+            st.caption(barcode.FORMAT_HELP)
             name_label = "Nombre / Característica" if item_kind == ITEM_TYPE_NAMES["child"] else "Nombre"
             name_placeholder = "Ej: Resistencias 220 Ω" if item_kind == ITEM_TYPE_NAMES["child"] else None
             name = st.text_input(name_label, placeholder=name_placeholder)
@@ -188,11 +202,12 @@ def render():
             "Característica (con su 'parent_id' apuntando al maestro) y 'standalone' "
             "para un Ítem Individual en la columna item_type."
         )
+        st.caption(barcode.FORMAT_HELP)
         template_csv = (
             "id,name,category,description,item_type,parent_id,unit,quantity,location,min_stock_alert\n"
-            "CAJA-001,Caja de Electronica,Electronica,Contenedor principal de componentes,master,,unidad,0,Estante 3,0\n"
-            "RES-220-01,Resistencias 220 ohm,Electronica,Paquete de 10,child,CAJA-001,paquete,20,Estante 3,5\n"
-            "MULT-01,Multimetro digital,Instrumentacion,Fluke 115,standalone,,unidad,4,Gabinete B,1\n"
+            "1-2-05-12-000,Caja de Electronica,Electronica,Contenedor principal de componentes,master,,unidad,0,Estante 3,0\n"
+            "1-2-05-12-001,Resistencias 220 ohm,Electronica,Paquete de 10,child,1-2-05-12-000,paquete,20,Estante 3,5\n"
+            "M1-E1,Multimetro digital,Instrumentacion,Fluke 115,standalone,,unidad,4,Mesa 1,1\n"
         )
         st.download_button(
             "⬇️ Descargar plantilla CSV", data=template_csv, file_name="plantilla_items_laboratorio.csv",
