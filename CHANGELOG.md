@@ -1,5 +1,33 @@
 # Changelog
 
+## v1.4.0 — Nomenclatura GLIOPS V3 y etiquetas imprimibles
+
+- **Nueva nomenclatura de codigos de inventario** (Canvas de Estructura y
+  Codificacion GLIOPS V3), validada con expresiones regulares en
+  `core/barcode.py` y aplicada al dar de alta items nuevos (no revalida
+  items ya existentes, para no romper catalogos cargados previamente):
+  - **Estandar de 5 niveles, 100% numerico**:
+    `[ESTANTERIA]-[PISO]-[CONTENEDOR]-[CAJA]-[ITEM]` (ej. `1-2-05-12-001`).
+    Estanteria 1 a 3, Piso 1 a 6; Contenedor/Caja/Item son consecutivos
+    positivos (con o sin ceros a la izquierda).
+  - **Mesas de trabajo**: `M1-E[n]` o `M2-E[n]` (ej. `M1-E2`).
+  - **Exhibicion Lego**: `E3-LM[n]` (ej. `E3-LM07`).
+  - `core.barcode.scan()` ahora interpreta el codigo escaneado y expone sus
+    componentes (`parsed`); Escanear muestra ese desglose ("Estantería 1 ·
+    Piso 2 · Contenedor 05 · Caja 12 · Ítem 001").
+- **Generacion de etiquetas imprimibles** (`core/labels.py`): codigo de
+  barras Code128 centrado + el codigo en texto legible por humanos abajo,
+  compuestos con Pillow sobre un lienzo de 384x192px (aprox. 50x25mm a
+  203dpi), listo para imprimirse en una termica SAT TT 460. Botón
+  "🏷️ Descargar etiqueta" en el catalogo de Inventario y en Escanear.
+- Plantilla CSV de importacion masiva actualizada a la nueva nomenclatura.
+- **Bug corregido**: `core.storage.firestore_retry` reintentaba errores de
+  validacion (`ValueError`, no transitorios) y su `raise` final, fuera de
+  cualquier bloque `except`, enmascaraba el error real con
+  `RuntimeError: No active exception to reraise`. Ahora los errores de
+  validacion se propagan de inmediato y las fallas transitorias reintentadas
+  relanzan la excepcion original.
+
 ## v1.3.0 — Modo oscuro real y legibilidad en celular
 
 - **Bug de modo oscuro corregido**: la paleta oscura solo se activaba con el

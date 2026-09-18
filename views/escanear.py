@@ -7,9 +7,22 @@ from datetime import datetime, timedelta, timezone
 
 import streamlit as st
 
-from core import barcode, loans as loans_core, notifications
+from core import barcode, labels, loans as loans_core, notifications
 from core.labels import ITEM_TYPE_BY_CHOICE, ITEM_TYPE_CHOICES, ITEM_TYPE_HELP, ITEM_TYPE_NAMES
 from core.ui import page_header
+
+
+def _render_label_download(item_id: str):
+    if not barcode.is_valid_code(item_id):
+        return
+    st.download_button(
+        "🏷️ Descargar etiqueta",
+        data=labels.generate_label_png_bytes(item_id),
+        file_name=f"etiqueta_{item_id}.png",
+        mime="image/png",
+        help="Etiqueta 50x25mm lista para la SAT TT 460",
+        key=f"label_scan_{item_id}",
+    )
 
 
 def _render_item_actions(item: dict, parent: dict = None):
@@ -82,6 +95,8 @@ def _render_new_item_wizard(scanned_code: str):
     user = st.session_state.user
 
     st.warning(f"El codigo `{scanned_code}` no existe todavia en el inventario.")
+    if not barcode.is_valid_code(scanned_code):
+        st.caption(f"⚠️ Este codigo no cumple ningun formato valido. {barcode.FORMAT_HELP}")
 
     if user["role"] == "estudiante":
         st.info("Pide a un profesor o al administrador del laboratorio que registre este item.")
@@ -144,6 +159,7 @@ def render():
 
     with st.form("scan_form", clear_on_submit=True):
         code = st.text_input("Codigo de barras", placeholder="Escanea aqui...")
+        st.caption(barcode.FORMAT_HELP)
         submitted = st.form_submit_button("Buscar", use_container_width=True)
         if submitted and code:
             st.session_state.scan_result = barcode.scan(storage, code)
@@ -164,9 +180,12 @@ def render():
     elif result["status"] == "found_master":
         item = result["item"]
         st.success(f"🗄️ {ITEM_TYPE_NAMES['master']}: **{item['name']}** (`{item['id']}`)")
+        if result.get("parsed"):
+            st.caption(f"📖 {barcode.describe_parsed(result['parsed'])}")
         if item.get("description"):
             st.caption(item["description"])
         st.caption(f"Ubicacion: {item.get('location') or 'N/A'}")
+        _render_label_download(item["id"])
         children = result["children"]
         if not children:
             st.info(f"Este {ITEM_TYPE_NAMES['master']} todavía no tiene {ITEM_TYPE_NAMES['child']}s registrados dentro.")
@@ -177,4 +196,7 @@ def render():
     elif result["status"] == "found_item":
         item = result["item"]
         st.success(f"✔️ Item encontrado: **{item['name']}** (`{item['id']}`)")
+        if result.get("parsed"):
+            st.caption(f"📖 {barcode.describe_parsed(result['parsed'])}")
+        _render_label_download(item["id"])
         _render_item_actions(item, parent=result.get("parent"))
