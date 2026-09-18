@@ -58,6 +58,39 @@ _excel_lock = Lock()
 # ---------------------------------------------------------------------------
 # Sincronizacion con GitHub
 # ---------------------------------------------------------------------------
+# El push real corre en un hilo de fondo (ver _write_and_sync), asi que un
+# st.toast/st.warning lanzado desde ahi puede perderse (el rerun principal ya
+# termino de renderizar). Este estado se guarda aparte para que la UI, en el
+# hilo principal de cada rerun, pueda mostrar de forma confiable si la ultima
+# sincronizacion funciono o no (ver LabStorage.get_sync_status()).
+
+_sync_status_lock = Lock()
+_sync_status = {
+    "configured": False,   # hay GITHUB_TOKEN + GITHUB_REPO en los Secrets
+    "ok": None,             # None = todavia no se intento ninguna operacion
+    "message": "",
+    "last_op": None,        # "pull" | "push"
+    "last_at": None,
+    "repo": "",
+    "db_path": "",
+}
+
+
+def _set_sync_status(configured: bool, ok, message: str, op: str = None) -> None:
+    with _sync_status_lock:
+        _sync_status["configured"] = configured
+        _sync_status["ok"] = ok
+        _sync_status["message"] = message
+        _sync_status["last_op"] = op
+        _sync_status["last_at"] = datetime.now(timezone.utc).isoformat()
+        _sync_status["repo"] = safe_secret("GITHUB_REPO", "")
+        _sync_status["db_path"] = safe_secret("GITHUB_DB_PATH", EXCEL_PATH)
+
+
+def get_sync_status() -> dict:
+    with _sync_status_lock:
+        return dict(_sync_status)
+
 
 def _github_headers() -> dict:
     token = safe_secret("GITHUB_TOKEN", "")
@@ -80,6 +113,10 @@ def _is_github_configured() -> bool:
         logger.warning(
             "GitHub sync desactivado. Agrega GITHUB_TOKEN y GITHUB_REPO en los Secrets de Streamlit."
         )
+        _set_sync_status(
+            configured=False, ok=None,
+            message="Falta GITHUB_TOKEN y/o GITHUB_REPO en los Secrets de Streamlit.",
+        )
         return False
     return True
 
@@ -94,12 +131,18 @@ def _github_pull() -> None:
 
         if resp.status_code == 404:
             logger.info(f"{EXCEL_PATH} no existe en GitHub todavia. Se creara al primer guardado.")
+            _set_sync_status(
+                configured=True, ok=True,
+                message="Conectado. La base de datos aun no existe en GitHub; se creara al primer guardado.",
+                op="pull",
+            )
             return
 
         if resp.status_code != 200:
-            msg = f"GitHub pull fallo: HTTP {resp.status_code} - {resp.text[:300]}"
-            logger.error(msg)
+            msg = _describe_github_error(resp.status_code, resp.text)
+            logger.error(f"GitHub pull fallo: HTTP {resp.status_code} - {resp.text[:300]}")
             st.warning(f"No se pudo sincronizar con GitHub: {msg}")
+            _set_sync_status(configured=True, ok=False, message=msg, op="pull")
             return
 
         data = resp.json()
@@ -111,15 +154,41 @@ def _github_pull() -> None:
             file_bytes = dl_resp.content
         else:
             logger.warning("GitHub pull: respuesta inesperada, sin contenido.")
+            _set_sync_status(
+                configured=True, ok=False,
+                message="GitHub respondio sin contenido descargable.", op="pull",
+            )
             return
 
         with open(EXCEL_PATH, "wb") as f:
             f.write(file_bytes)
         logger.info(f"{EXCEL_PATH} descargado desde GitHub ({len(file_bytes) / 1024:.1f} KB).")
+        _set_sync_status(
+            configured=True, ok=True,
+            message=f"Ultima descarga OK ({len(file_bytes) / 1024:.1f} KB).", op="pull",
+        )
 
     except Exception as e:
         logger.error(f"GitHub pull error: {e}")
         st.warning(f"No se pudo descargar la base de datos desde GitHub: {e}")
+        _set_sync_status(configured=True, ok=False, message=str(e), op="pull")
+
+
+def _describe_github_error(status_code: int, body: str) -> str:
+    """Traduce los codigos de error mas comunes de la API de GitHub a un
+    mensaje accionable (en vez de solo el HTTP crudo)."""
+    if status_code == 404:
+        repo = safe_secret("GITHUB_REPO", "")
+        return (
+            f"El repositorio '{repo}' no existe o el token no tiene acceso a el. "
+            "Verifica GITHUB_REPO en los Secrets de Streamlit (Settings -> Secrets)."
+        )
+    if status_code in (401, 403):
+        return (
+            "El GITHUB_TOKEN no es valido o no tiene permiso de escritura "
+            "('Contents: Read and write') sobre el repositorio configurado."
+        )
+    return f"HTTP {status_code} - {body[:300]}"
 
 
 def _github_push() -> None:
@@ -149,17 +218,23 @@ def _github_push() -> None:
         if put_resp.status_code in (200, 201):
             logger.info("Base de datos sincronizada con GitHub correctamente.")
             st.toast("Datos guardados y sincronizados con GitHub", icon="✅")
+            _set_sync_status(configured=True, ok=True, message="Ultima sincronizacion OK.", op="push")
         else:
-            error_detail = put_resp.text[:500]
-            msg = f"GitHub push fallo: HTTP {put_resp.status_code} - {error_detail}"
-            logger.error(msg)
+            msg = _describe_github_error(put_resp.status_code, put_resp.text)
+            logger.error(f"GitHub push fallo: HTTP {put_resp.status_code} - {put_resp.text[:500]}")
             st.warning(f"Error de sincronizacion con GitHub: {msg}")
+            _set_sync_status(configured=True, ok=False, message=msg, op="push")
 
     except FileNotFoundError:
         logger.error(f"No se encontro el archivo local {EXCEL_PATH} para subir a GitHub.")
+        _set_sync_status(
+            configured=True, ok=False,
+            message=f"No se encontro el archivo local {EXCEL_PATH} para subir.", op="push",
+        )
     except Exception as e:
         logger.error(f"GitHub push error inesperado: {e}")
         st.warning(f"Error inesperado al sincronizar con GitHub: {e}")
+        _set_sync_status(configured=True, ok=False, message=str(e), op="push")
 
 
 # ---------------------------------------------------------------------------
@@ -338,6 +413,12 @@ class LabStorage:
 
     def is_github_sync_active(self) -> bool:
         return _is_github_configured()
+
+    def get_sync_status(self) -> dict:
+        """Estado de la ultima sincronizacion con GitHub (ver core.storage.get_sync_status).
+        Usado por la UI para avisar de forma visible si los datos NO se estan
+        guardando de forma permanente."""
+        return get_sync_status()
 
     # ------------------------------------------------------------------
     # ITEMS (productos, contenedores maestros e items hijos)

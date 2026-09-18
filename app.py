@@ -11,7 +11,7 @@ import streamlit as st
 
 from core.storage import LabStorage
 from core import auth
-from core.ui import centered_logo
+from core.ui import centered_logo, sync_status_banner
 
 st.set_page_config(
     page_title="Inventario de Laboratorio UNIMINUTO",
@@ -117,6 +117,8 @@ with st.sidebar:
         st.rerun()
     st.markdown("---")
     st.caption("© 2026 UNIMINUTO · Laboratorio de Ingeniería.")
+
+sync_status_banner(storage, user)
 
 nav = st.navigation(nav_sections)
 nav.run()
